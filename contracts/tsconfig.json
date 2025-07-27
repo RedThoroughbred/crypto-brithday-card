@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "declaration": true,
+    "outDir": "./dist",
+    "typeRoots": ["./node_modules/@types", "./typechain-types"]
+  },
+  "include": [
+    "./src/**/*",
+    "./test/**/*",
+    "./scripts/**/*",
+    "./hardhat.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "artifacts",
+    "cache",
+    "coverage"
+  ]
+}
