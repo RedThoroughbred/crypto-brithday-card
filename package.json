@@ -1,0 +1,42 @@
+{
+  "name": "geogift",
+  "version": "0.1.0",
+  "description": "Location-verified crypto gift card platform",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "contracts"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "build": "npm run build:frontend && npm run build:contracts",
+    "build:frontend": "cd frontend && npm run build",
+    "build:contracts": "cd contracts && npm run compile",
+    "test": "npm run test:frontend && npm run test:backend && npm run test:contracts",
+    "test:frontend": "cd frontend && npm run test",
+    "test:backend": "cd backend && python -m pytest",
+    "test:contracts": "cd contracts && npm run test",
+    "lint": "npm run lint:frontend && npm run lint:backend",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:backend": "cd backend && flake8 .",
+    "typecheck": "cd frontend && npm run typecheck",
+    "deploy:testnet": "cd contracts && npm run deploy:mumbai",
+    "deploy:mainnet": "cd contracts && npm run deploy:polygon"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "crypto",
+    "blockchain",
+    "gifts",
+    "location",
+    "polygon",
+    "web3"
+  ],
+  "author": "GeoGift Team",
+  "license": "MIT"
+}

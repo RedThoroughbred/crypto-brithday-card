@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "notify-send 'Claude Code' 'Task completed! 🎉' --icon=dialog-information --urgency=normal && paplay /usr/share/sounds/alsa/Front_Right.wav 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+        {
+          "type": "command",
+          "command": "notify-send 'Claude Code' 'Waiting for your input...' --icon=dialog-question --urgency=normal && paplay /usr/share/sounds/alsa/Side_Left.wav 2>/dev/null || true"
+        }
+        ]
+      }
+    ]
+  }
+}
