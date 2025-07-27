@@ -40,8 +40,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
-# Initialize router
-router = APIRouter(prefix="/auth", tags=["authentication"])
+# Initialize router (prefix handled by parent router)
+router = APIRouter(tags=["authentication"])
 
 # Security dependency for JWT validation
 security = HTTPBearer()

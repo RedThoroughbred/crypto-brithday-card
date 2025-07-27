@@ -4,17 +4,18 @@ import { ReactNode } from 'react';
 import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { polygon, polygonMumbai } from 'wagmi/chains';
+import { sepolia, mainnet } from 'wagmi/chains';
 import { ThemeProvider } from 'next-themes';
 import '@rainbow-me/rainbowkit/styles.css';
 
 const chains = process.env.NEXT_PUBLIC_ENABLE_TESTNET === 'true' 
-  ? [polygonMumbai, polygon] as const
-  : [polygon] as const;
+  ? [sepolia, mainnet] as const
+  : [mainnet] as const;
 
+// Use a minimal config that won't cause 403 errors
 const config = getDefaultConfig({
   appName: 'GeoGift',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'geogift-default',
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '0000000000000000000000000000000000000000',
   chains,
   ssr: true,
 });

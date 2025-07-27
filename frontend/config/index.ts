@@ -22,8 +22,8 @@ export const APP_CONFIG = {
 
   // Blockchain Configuration
   blockchain: {
-    defaultChainId: parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '137'),
-    supportedChains: [137, 80001], // Polygon Mainnet and Mumbai Testnet
+    defaultChainId: parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '11155111'),
+    supportedChains: [11155111, 1], // Sepolia Testnet and Ethereum Mainnet
     contracts: {
       locationEscrow: {
         address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '',
@@ -31,8 +31,8 @@ export const APP_CONFIG = {
       },
     },
     rpcUrls: {
-      137: process.env.NEXT_PUBLIC_POLYGON_RPC_URL || '',
-      80001: process.env.NEXT_PUBLIC_POLYGON_TESTNET_RPC_URL || '',
+      1: process.env.NEXT_PUBLIC_ETHEREUM_RPC_URL || '',
+      11155111: process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || '',
     },
   },
 
@@ -176,7 +176,7 @@ export const getChainConfig = (chainId: number) => {
   return {
     chainId,
     rpcUrl: blockchain.rpcUrls[chainId as keyof typeof blockchain.rpcUrls],
-    isTestnet: chainId === 80001,
+    isTestnet: chainId === 11155111,
   };
 };
 

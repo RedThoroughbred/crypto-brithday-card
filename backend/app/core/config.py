@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     
     # Security
     SECRET_KEY: str = "dev-secret-key-change-in-production"
+    JWT_SECRET_KEY: str = "your-jwt-secret"
+    ENCRYPTION_KEY: str = "your-encryption-key"
     ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1", "0.0.0.0"]
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
@@ -51,8 +53,9 @@ class Settings(BaseSettings):
     REDIS_CACHE_TTL: int = 300  # 5 minutes
     
     # Blockchain
-    WEB3_PROVIDER_URL: str = "https://polygon-mumbai.g.alchemy.com/v2/demo"
-    POLYGON_RPC_URL: str = "https://polygon-mainnet.g.alchemy.com/v2/demo"
+    WEB3_PROVIDER_URL: str = "https://eth-sepolia.g.alchemy.com/v2/demo"
+    ETHEREUM_RPC_URL: str = "https://eth-mainnet.g.alchemy.com/v2/demo"
+    SEPOLIA_RPC_URL: str = "https://eth-sepolia.g.alchemy.com/v2/demo"
     PRIVATE_KEY: Optional[str] = None
     CONTRACT_ADDRESS: Optional[str] = None
     

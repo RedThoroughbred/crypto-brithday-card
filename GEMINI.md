@@ -1,4 +1,4 @@
-# GEMINI.md - GeoGift Project Context
+# CLAUDE.md - GeoGift Project Context
 
 > This file serves as the central memory and context reference for AI-assisted development of the GeoGift platform.
 
@@ -28,11 +28,12 @@ GeoGift is a **location-verified crypto gift card platform** that transforms pas
 ### Technical Infrastructure Research
 
 #### Blockchain Solutions Evaluated:
-- **Polygon**: 65,000 TPS, ~$0.01 transactions, fastest option
-- **Arbitrum**: 40,000 TPS, ~$0.02 transactions, highest EVM compatibility
-- **Optimism**: Good balance, strong ecosystem support
+- **Ethereum Sepolia**: Testnet for development and testing, full EVM compatibility
+- **Ethereum Mainnet**: Production deployment target
+- **Polygon**: 65,000 TPS, ~$0.01 transactions (future consideration)
+- **Arbitrum**: 40,000 TPS, ~$0.02 transactions (future consideration)
 
-**Recommendation**: Start with Polygon for cost efficiency, expand to Arbitrum for ecosystem reach.
+**Current Implementation**: Using Ethereum Sepolia testnet for development, with mainnet deployment planned for production.
 
 #### Location Verification Insights:
 - **GPS Accuracy**: 3-5 meter precision standard
@@ -88,213 +89,58 @@ GeoGift is a **location-verified crypto gift card platform** that transforms pas
 // Smart Contracts (Solidity 0.8.20+)
 - OpenZeppelin (Security patterns)
 - Hardhat (Development framework)
-- Foundry (Testing framework)
-- Chainlink (Oracle services)
+- TypeChain (Type generation)
+- Etherscan (Contract verification)
 
 // Networks
-- Polygon (Primary L2)
-- Arbitrum (Secondary L2)
-- Ethereum Mainnet (Settlement)
-```
-
-### 🚀 Advanced Feature Architecture
-
-#### Multi-Location Gift Chains
-```solidity
-// Enhanced smart contract for gift chains
-contract LocationEscrowChain {
-    struct GiftChain {
-        address giver;
-        address receiver;
-        uint256 totalAmount;
-        uint256 currentLocation;
-        uint256 totalLocations;
-        bool[] locationsCompleted;
-        Location[] locations;
-        bytes32[] mediaHashes;
-        uint256 expiry;
-        bool fullyCompleted;
-    }
-    
-    struct Location {
-        int256 lat;
-        int256 lon;
-        uint256 radius;
-        bytes32 clueHash;
-        uint256 rewardAmount;
-    }
-    
-    function createGiftChain(
-        address payable recipient,
-        Location[] memory locations,
-        bytes32[] memory clueHashes,
-        uint256 expiryTime
-    ) external payable returns (uint256);
-    
-    function claimLocationInChain(
-        uint256 chainId, 
-        uint256 locationIndex,
-        int256 userLat, 
-        int256 userLon,
-        bytes32 mediaHash
-    ) external;
-}
-```
-
-#### Hybrid Location Verification
-```python
-# Enhanced location verification with SMS backup
-class HybridLocationVerifier:
-    def __init__(self):
-        self.gps_verifier = GPSLocationVerifier()
-        self.sms_verifier = SMSLocationVerifier()
-        self.carrier_api = CarrierCoverageAPI()
-    
-    async def verify_location(
-        self, 
-        target_lat: float, 
-        target_lon: float,
-        user_lat: float, 
-        user_lon: float,
-        phone_number: str = None,
-        verification_method: str = "auto"
-    ) -> VerificationResult:
-        """
-        Hybrid verification: GPS primary, SMS fallback
-        """
-        # Check carrier coverage at location
-        coverage = await self.carrier_api.check_coverage(target_lat, target_lon)
-        
-        if verification_method == "auto":
-            if coverage.signal_strength > 0.7:
-                return await self.gps_verifier.verify(target_lat, target_lon, user_lat, user_lon)
-            else:
-                return await self.sms_verifier.verify_with_sms(target_lat, target_lon, phone_number)
-        
-        # Dual verification for high-value gifts
-        gps_result = await self.gps_verifier.verify(target_lat, target_lon, user_lat, user_lon)
-        sms_result = await self.sms_verifier.verify_with_sms(target_lat, target_lon, phone_number)
-        
-        return self.combine_verification_results(gps_result, sms_result)
-```
-
-#### Media Memory Management
-```python
-# Media storage and memory preservation system
-class MediaMemoryManager:
-    def __init__(self):
-        self.ipfs_client = IPFSClient()
-        self.cloud_storage = CloudStorageManager()
-        self.media_processor = MediaProcessor()
-    
-    async def store_location_memory(
-        self,
-        chain_id: str,
-        location_index: int,
-        media_file: UploadFile,
-        user_wallet: str
-    ) -> MediaMemory:
-        """
-        Process and store location-based media memories
-        """
-        # Process media (compress, optimize, validate)
-        processed_media = await self.media_processor.process(media_file)
-        
-        # Store in IPFS for decentralization
-        ipfs_hash = await self.ipfs_client.upload(processed_media)
-        
-        # Backup to cloud storage
-        cloud_url = await self.cloud_storage.upload(
-            processed_media, 
-            f"chains/{chain_id}/location_{location_index}"
-        )
-        
-        # Create memory record
-        memory = MediaMemory(
-            chain_id=chain_id,
-            location_index=location_index,
-            ipfs_hash=ipfs_hash,
-            cloud_url=cloud_url,
-            user_wallet=user_wallet,
-            timestamp=datetime.utcnow()
-        )
-        
-        return memory
-    
-    async def get_chain_memories(self, chain_id: str) -> List[MediaMemory]:
-        """
-        Retrieve all memories for a completed gift chain
-        """
-        return await self.db.get_chain_memories(chain_id)
+- Ethereum Sepolia (Primary testnet)
+- Ethereum Mainnet (Production)
+- Future L2 expansion (Polygon, Arbitrum)
 ```
 
 ## 🎯 User Stories & MVP Requirements
 
-### Enhanced User Flows
+### Primary User Flows
 
 #### Gift Creator (Giver) Journey:
 1. **Authenticate**: Connect Web3 wallet (MetaMask)
 2. **Design Card**: Choose template, add personal message
-3. **Set Challenge**: Drop map pin(s), create location clues for single or chain gifts
-4. **Configure Security**: Set radius, backup methods, expiry, SMS verification
-5. **Add Media**: Upload photos/videos for location-based memories (optional)
-6. **Fund Escrow**: Deposit crypto to smart contract (single or chain)
-7. **Send Invitation**: Digital card delivered to recipient
-
-#### Advanced Multi-Location Experience:
-1. **Chain Discovery**: Recipient receives first clue in sequence
-2. **Progressive Unlock**: Each location unlocks next clue + partial reward
-3. **Media Capture**: Photo/video memories at each location
-4. **Memory Timeline**: Build digital scrapbook of treasure hunt journey  
-5. **Social Sharing**: Share completed chain experience with friends
-6. **Cloud Integration**: Export memories to personal cloud storage
+3. **Set Challenge**: Drop map pin, create location clues
+4. **Configure Security**: Set radius, backup methods, expiry
+5. **Fund Escrow**: Deposit crypto to smart contract
+6. **Send Invitation**: Digital card delivered to recipient
 
 #### Gift Recipient Journey:
 1. **Receive Invite**: Digital card with mystery clues
-2. **Solve Puzzle**: Interpret hints to find location(s)
-3. **Navigate**: GPS guidance to target coordinates
-4. **Dual Verification**: GPS detection + SMS confirmation when needed
-5. **Capture Memory**: Take photo/video at location (chains only)
-6. **Claim Reward**: Smart contract releases funds (partial for chains)
-7. **Continue Chain**: Receive next clue for multi-location gifts
-8. **Celebrate**: Share experience, create lasting memories
+2. **Solve Puzzle**: Interpret hints to find location
+3. **Navigate**: GPS guidance to target coordinates  
+4. **Verify Location**: Automatic detection within radius
+5. **Claim Reward**: Smart contract releases funds
+6. **Celebrate**: Share experience, create memory
 
 ### MVP Feature Prioritization
 
 #### Phase 1 - Core Functionality (8-10 weeks)
-- [x] Basic escrow smart contract (deposit/release)
-- [x] Simple GPS coordinate verification
-- [x] React frontend with wallet integration
-- [x] Python backend with Web3.py
-- [x] Polygon testnet deployment
-- [x] Basic card templates
+- [ ] Basic escrow smart contract (deposit/release)
+- [ ] Simple GPS coordinate verification
+- [ ] React frontend with wallet integration
+- [ ] Python backend with Web3.py
+- [ ] Polygon testnet deployment
+- [ ] Basic card templates
 
-#### Phase 2 - Enhanced Experience + Multi-Location (6-8 weeks)  
-- [ ] Multi-location gift chains with sequential unlocking
-- [ ] Hybrid GPS+SMS verification system
-- [ ] Media integration (photo/video) for chain memories
-- [ ] Cloud storage integration for memory preservation
-- [ ] Advanced location verification with ML anti-spoofing
-- [ ] Mobile-responsive design optimization
-- [ ] Real-time notifications and progress tracking
-
-#### Phase 3 - Scale & Advanced Features (8-12 weeks)
-- [ ] IPFS integration for decentralized media storage
-- [ ] Advanced chain analytics and completion insights
-- [ ] Social features and memory sharing capabilities
-- [ ] Carrier coverage API integration for SMS reliability
-- [ ] Enterprise multi-location team building packages
+#### Phase 2 - Enhanced Experience (6-8 weeks)  
+- [ ] Complex multi-clue treasure hunts
 - [ ] Fiat on/off-ramp integration
+- [ ] Advanced location verification
+- [ ] Mobile-responsive design
+- [ ] Security hardening
+
+#### Phase 3 - Scale & Growth (8-12 weeks)
+- [ ] Financial institution partnerships
+- [ ] Enterprise team-building features
 - [ ] Advanced analytics dashboard
 - [ ] Multi-language support
 - [ ] Mainnet production launch
-
-#### Phase 4 - Enterprise & Growth (Future)
-- [ ] Corporate partnership integrations
-- [ ] Advanced ML for location behavior analysis
-- [ ] Augmented reality location discovery features
-- [ ] Integration with popular tourism/travel platforms
-- [ ] Advanced privacy features with zero-knowledge proofs
 
 ## 🔧 Development Environment Setup
 
@@ -322,29 +168,26 @@ foundry --version     # Latest
 
 ```bash
 # Database
-DATABASE_URL=postgresql://user:pass@localhost/geogift_dev
+DATABASE_URL=postgresql://geogift:password@localhost:5432/geogift_dev
 REDIS_URL=redis://localhost:6379/0
 
 # Blockchain
-POLYGON_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/your-key
-POLYGON_TESTNET_RPC_URL=https://polygon-mumbai.g.alchemy.com/v2/your-key
+ETHEREUM_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/your-key
+SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/your-key
 PRIVATE_KEY=your-wallet-private-key
 ETHERSCAN_API_KEY=your-etherscan-key
+
+# Frontend Blockchain
+NEXT_PUBLIC_ETHEREUM_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/your-key
+NEXT_PUBLIC_SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/your-key
+NEXT_PUBLIC_ENABLE_TESTNET=true
+NEXT_PUBLIC_CHAIN_ID=11155111
 
 # APIs
 GOOGLE_MAPS_API_KEY=your-google-maps-key
 MAPBOX_ACCESS_TOKEN=your-mapbox-token
 TWILIO_ACCOUNT_SID=your-twilio-sid
 TWILIO_AUTH_TOKEN=your-twilio-token
-
-# Advanced Features
-IPFS_API_URL=https://ipfs.infura.io:5001/api/v0
-IPFS_PROJECT_ID=your-ipfs-project-id
-IPFS_PROJECT_SECRET=your-ipfs-secret
-CARRIER_COVERAGE_API_KEY=your-carrier-api-key
-AWS_S3_BUCKET=geogift-media-storage
-CLOUDFLARE_R2_BUCKET=geogift-memories
-OPENAI_API_KEY=your-openai-key # For ML-based anti-spoofing
 
 # Security
 JWT_SECRET_KEY=your-jwt-secret
@@ -494,8 +337,6 @@ def verify_location(target_lat: float, target_lon: float, user_lat: float, user_
 2. **Behavioral Analysis**: Detect impossible movement patterns
 3. **Time Verification**: Ensure reasonable travel time between locations
 4. **Device Fingerprinting**: Track unique device characteristics
-5. **Hybrid Verification**: SMS backup for poor GPS signal areas
-6. **ML-Based Detection**: Pattern recognition for spoofing attempts
 
 ### Smart Contract Security
 1. **Reentrancy Guards**: OpenZeppelin's nonReentrant modifier
@@ -508,21 +349,18 @@ def verify_location(target_lat: float, target_lon: float, user_lat: float, user_
 2. **Private Key Security**: Client-side only, never transmitted
 3. **Rate Limiting**: Prevent brute force attacks
 4. **Input Validation**: Comprehensive sanitization
-5. **Media Security**: Content validation and secure storage
-6. **Chain Privacy**: Encrypted clue storage and secure memory management
 
 ## 📈 Revenue Model Strategy
 
 ### Pricing Tiers (Validated from Market Research)
-- **Free Tier**: Basic cards, simple GPS, amounts <$50, single location
-- **Premium ($9.99/month)**: Custom clues, multi-location chains, amounts <$500, media memories
-- **Enterprise (Custom)**: Team building, corporate accounts, unlimited amounts, advanced analytics
+- **Free Tier**: Basic cards, simple GPS, amounts <$50
+- **Premium ($9.99/month)**: Custom clues, multi-location, amounts <$500
+- **Enterprise (Custom)**: Team building, corporate accounts, unlimited amounts
 
 ### Transaction Fees
 - **Platform Fee**: 2-3% on gift amounts
 - **Blockchain Fees**: Pass-through gas costs (minimal on L2)
 - **Payment Processing**: Standard rates for fiat on/off-ramps
-- **Media Storage**: Tiered pricing for cloud storage and IPFS hosting
 
 ## 🎯 Success Metrics
 
@@ -531,16 +369,12 @@ def verify_location(target_lat: float, target_lon: float, user_lat: float, user_
 - **Location Verification Accuracy**: >98%
 - **Average Response Time**: <200ms API calls
 - **Smart Contract Gas Efficiency**: <100k gas per transaction
-- **Media Processing Speed**: <30s for photo/video upload and processing
-- **Chain Completion Rate**: >85% for multi-location gifts
 
 ### Business KPIs  
 - **User Acquisition**: 1000 MAU by month 6
 - **Revenue Growth**: $10k ARR by month 12
 - **Platform Engagement**: >80% completion rate for created gifts
 - **Customer Satisfaction**: >4.5/5 rating
-- **Chain Adoption**: >40% of gifts use multi-location features by month 9
-- **Memory Retention**: >90% of users save chain memories to cloud storage
 
 ## 🔄 Development Workflow
 
@@ -597,33 +431,46 @@ def verify_location(target_lat: float, target_lon: float, user_lat: float, user_
 9. **✅ Web3 Authentication System** - EIP-191 compliant signature verification with JWT tokens
 10. **✅ API Integration** - Complete authentication endpoints with database layer integration
 
-### ✅ Current Status: Web3 Authentication Complete + Advanced Features Integrated
-**Backend Agent has completed full Web3 authentication system with challenge-response flow, rate limiting, and JWT integration. Advanced features from brother's suggestions have been integrated into project roadmap.**
+### ✅ Current Status: Web3 Authentication & Wallet Integration Complete
+**Fixed critical memory issues and successfully established MetaMask wallet connectivity**
 
-### ⏳ Short-term Goals (Next 2-4 weeks)
-1. **Deploy to Polygon testnet** with basic functionality
-2. **Implement location verification** algorithm and testing
-3. **Create MVP user interface** for gift creation and claiming
-4. **Integrate wallet connectivity** with MetaMask and WalletConnect
-5. **Set up comprehensive testing** suites for all components
-6. **Begin multi-location chain development** following integrated roadmap
+### ✅ Completed (Phase 1, Week 2 - Final)
+**Critical Issue Resolution & Wallet Integration:**
+11. **✅ Fixed 3GB Memory Usage Issue** - Invalid WalletConnect project ID causing endless 403 API requests
+12. **✅ Implemented Stable Service Management** - start-dev.sh script using separate Terminal windows
+13. **✅ Successfully Connected MetaMask Wallet** - Web3 authentication working with address: 0x2fa710b2a99cdd9e314080b78b0f7bf78c126234
+14. **✅ Migrated to Sepolia Testnet** - Complete network migration from Polygon to Ethereum Sepolia
+15. **✅ Fixed Frontend Crash Issues** - Restored Web3 providers and resolved WagmiProviderNotFoundError
+
+### ⏳ Next Development Phase (Week 3 - Smart Contract Deployment & Testing)
+1. **Deploy smart contracts to Sepolia testnet** - LocationEscrow.sol deployment
+2. **Complete location verification integration** - GPS services and API testing
+3. **Implement gift creation flow** - Frontend to backend to smart contract
+4. **Test end-to-end gift claiming** - Location verification and crypto release
+5. **Add real WalletConnect project ID** - Clean up console warnings
 
 ### Medium-term Objectives (1-3 months)
 1. **Complete MVP feature set** with all core functionality
-2. **Implement multi-location gift chains** with media integration
-3. **Deploy hybrid GPS+SMS verification** system
-4. **Conduct security audits** of smart contracts and backend
-5. **Implement cloud storage integration** for memory preservation
-6. **Launch beta testing program** with early adopters including chain features
-7. **Prepare for mainnet deployment** with production infrastructure
+2. **Conduct security audits** of smart contracts and backend
+3. **Implement fiat on/off-ramps** for mainstream adoption
+4. **Launch beta testing program** with early adopters
+5. **Prepare for mainnet deployment** with production infrastructure
 
 ## 📊 Current Implementation Status
+
+### 🔧 Development Environment ✅ **COMPLETED**
+- **Start Scripts**: `start.sh` and `start-dev.sh` for easy service management
+- **PostgreSQL**: Docker container running on port 5432 with proper credentials
+- **Environment Variables**: Configured for Ethereum Sepolia testnet development
+- **Network Migration**: Successfully migrated from Polygon to Ethereum Sepolia
+- **Python Virtual Environment**: `venv` with all backend dependencies installed
+- **Node.js Dependencies**: Frontend and contracts dependencies installed
 
 ### Blockchain Layer ✅ **COMPLETED**
 - **LocationEscrow.sol**: Full implementation with location verification, emergency withdrawal, admin functions
 - **Test Suite**: 18 comprehensive tests covering all contract functionality
 - **TypeChain Integration**: Full TypeScript support for contract interactions
-- **Multi-network Support**: Configured for Polygon, Mumbai, Arbitrum deployments
+- **Network Support**: Configured for Ethereum Sepolia testnet and mainnet deployments
 - **Security Patterns**: OpenZeppelin ReentrancyGuard, Pausable, AccessControl
 
 ### Backend Layer ✅ **CORE COMPLETED + DATABASE + AUTHENTICATION**
@@ -676,15 +523,36 @@ def verify_location(target_lat: float, target_lon: float, user_lat: float, user_
 - **Session Management**: JWT tokens with configurable expiration
 - **CRUD Operations**: Full user management with wallet-based queries
 
-### Frontend Layer ✅ **COMPLETED**
-- **Next.js 14**: Full application with App Router, TypeScript, and 8 complete pages
-- **UI Framework**: Tailwind CSS + shadcn/ui with custom GeoGift theme and dark mode
-- **Web3 Integration**: wagmi + RainbowKit configured for Polygon wallet connectivity
-- **Component Architecture**: Modern React patterns with hooks, Suspense, and error boundaries
-- **Forms & Validation**: React Hook Form + Zod with multi-step wizard flows
-- **Location Services**: GPS integration with geolocation API and distance calculation
-- **State Management**: Zustand setup with global state architecture
-- **Testing Framework**: Vitest + Playwright configured for unit and E2E testing
+### Frontend Layer ✅ **COMPLETED - Wallet Integration Working**
+- **Next.js 14**: Full application with App Router, TypeScript, and 8 complete pages ✅
+- **UI Framework**: Tailwind CSS + shadcn/ui with custom GeoGift theme and dark mode ✅
+- **Web3 Integration**: wagmi + RainbowKit configured for Ethereum Sepolia connectivity ✅
+- **Component Architecture**: Modern React patterns with hooks, Suspense, and error boundaries ✅
+- **Forms & Validation**: React Hook Form + Zod with multi-step wizard flows ✅
+- **Location Services**: GPS integration with geolocation API and distance calculation ✅
+- **State Management**: Zustand setup with global state architecture ✅
+- **Testing Framework**: Vitest + Playwright configured for unit and E2E testing ✅
+- **✅ MetaMask Integration**: Wallet connection working, Web3 providers restored, memory issues resolved
+- **Environment Config**: Sepolia testnet configured with temporary WalletConnect project ID
+
+### 🔧 Technical Issues Resolved
+#### **Memory Leak & Performance Issues**
+- **Problem**: 3GB memory usage causing browser crashes and endless API requests
+- **Root Cause**: Invalid WalletConnect project ID triggering 403 errors in continuous loop
+- **Solution**: Implemented proper fallback project ID in providers.tsx
+- **Result**: Normal memory usage, stable browser performance
+
+#### **Service Management Issues**
+- **Problem**: Backend and frontend services shutting down unexpectedly
+- **Root Cause**: Terminal session timeouts and process management issues
+- **Solution**: Created start-dev.sh script with separate Terminal windows
+- **Result**: Stable service operation with proper process isolation
+
+#### **Web3 Provider Issues**
+- **Problem**: WagmiProviderNotFoundError causing frontend crashes
+- **Root Cause**: Web3 providers were previously removed, breaking Wagmi hooks
+- **Solution**: Restored complete provider configuration with proper chain setup
+- **Result**: MetaMask wallet connection working successfully
 
 ---
 
