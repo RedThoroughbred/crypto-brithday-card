@@ -5,6 +5,7 @@ import { useAccount } from 'wagmi';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useLocationEscrow } from '@/hooks/useLocationEscrow';
 import { 
   MapPin, 
   Gift, 
@@ -42,6 +43,17 @@ export default function CreateGiftPage() {
   const { address, isConnected } = useAccount();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
+  
+  // Smart contract integration
+  const { 
+    createGift, 
+    isCreating, 
+    createError, 
+    createdGiftId, 
+    createTxHash, 
+    isTxSuccess,
+    resetCreateState 
+  } = useLocationEscrow();
 
   const {
     register,
@@ -83,9 +95,28 @@ export default function CreateGiftPage() {
     setValue('longitude', lng);
   };
 
-  const onSubmit = (data: CreateGiftForm) => {
+  const onSubmit = async (data: CreateGiftForm) => {
+    if (!selectedLocation) {
+      console.error('No location selected');
+      return;
+    }
+
     console.log('Creating gift:', data);
-    // Here we would call the smart contract to create the gift
+    
+    try {
+      await createGift({
+        recipientAddress: data.recipientAddress,
+        amount: data.amount,
+        latitude: selectedLocation.lat,
+        longitude: selectedLocation.lng,
+        radius: data.radius,
+        clue: data.clue,
+        message: data.message,
+        expiryDays: data.expiryDays,
+      });
+    } catch (error) {
+      console.error('Failed to create gift:', error);
+    }
   };
 
   const nextStep = () => {
@@ -282,14 +313,36 @@ export default function CreateGiftPage() {
                             Selected: {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
                           </p>
                         )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => handleLocationSelect(40.7831, -73.9712)} // Central Park example
-                          className="mt-4"
-                        >
-                          Select Central Park (Demo)
-                        </Button>
+                        <div className="space-y-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              navigator.geolocation.getCurrentPosition(
+                                (position) => {
+                                  const lat = position.coords.latitude;
+                                  const lng = position.coords.longitude;
+                                  handleLocationSelect(lat, lng);
+                                },
+                                (error) => {
+                                  console.error('Error getting location:', error);
+                                  alert('Unable to get your location. Please enable location services.');
+                                }
+                              );
+                            }}
+                            className="mt-4 w-full"
+                          >
+                            📍 Use My Current Location
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => handleLocationSelect(40.7831, -73.9712)}
+                            className="w-full"
+                          >
+                            Select Central Park (Demo)
+                          </Button>
+                        </div>
                       </div>
                     </div>
 
@@ -362,17 +415,74 @@ export default function CreateGiftPage() {
                       </dl>
                     </div>
 
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <h4 className="text-sm font-medium text-yellow-800 mb-2">
-                        Important Notes:
-                      </h4>
-                      <ul className="text-sm text-yellow-700 space-y-1">
-                        <li>• This action will create a smart contract transaction</li>
-                        <li>• The gift amount will be locked until claimed or expired</li>
-                        <li>• Gas fees will apply for the transaction</li>
-                        <li>• Make sure all details are correct before proceeding</li>
-                      </ul>
-                    </div>
+                    {/* Transaction Status */}
+                    {createError && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <h4 className="text-sm font-medium text-red-800 mb-2">
+                          Transaction Failed:
+                        </h4>
+                        <p className="text-sm text-red-700">{createError}</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={resetCreateState}
+                          className="mt-2"
+                        >
+                          Try Again
+                        </Button>
+                      </div>
+                    )}
+
+                    {isTxSuccess && createdGiftId && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <h4 className="text-sm font-medium text-green-800 mb-2">
+                          🎉 Gift Created Successfully!
+                        </h4>
+                        <p className="text-sm text-green-700 mb-2">
+                          Your gift has been created and funds are locked in the smart contract.
+                        </p>
+                        {createTxHash && (
+                          <a
+                            href={`https://sepolia.etherscan.io/tx/${createTxHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-green-600 hover:text-green-800 underline"
+                          >
+                            View transaction on Etherscan
+                          </a>
+                        )}
+                      </div>
+                    )}
+
+                    {isCreating && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 className="text-sm font-medium text-blue-800 mb-2">
+                          Creating Gift...
+                        </h4>
+                        <p className="text-sm text-blue-700">
+                          Please confirm the transaction in your wallet and wait for confirmation.
+                        </p>
+                        <div className="mt-2 flex items-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          <span className="ml-2 text-sm text-blue-600">Processing...</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {!isCreating && !isTxSuccess && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <h4 className="text-sm font-medium text-yellow-800 mb-2">
+                          Important Notes:
+                        </h4>
+                        <ul className="text-sm text-yellow-700 space-y-1">
+                          <li>• This action will create a smart contract transaction</li>
+                          <li>• The gift amount will be locked until claimed or expired</li>
+                          <li>• Gas fees will apply for the transaction</li>
+                          <li>• Make sure all details are correct before proceeding</li>
+                        </ul>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -399,9 +509,26 @@ export default function CreateGiftPage() {
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 ) : (
-                  <Button type="submit" disabled={!isValid || !selectedLocation}>
-                    <Gift className="mr-2 h-4 w-4" />
-                    Create Gift
+                  <Button 
+                    type="submit" 
+                    disabled={!isValid || !selectedLocation || isCreating || isTxSuccess}
+                  >
+                    {isCreating ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Creating Gift...
+                      </>
+                    ) : isTxSuccess ? (
+                      <>
+                        <Gift className="mr-2 h-4 w-4" />
+                        Gift Created!
+                      </>
+                    ) : (
+                      <>
+                        <Gift className="mr-2 h-4 w-4" />
+                        Create Gift
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
