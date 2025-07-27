@@ -12,6 +12,7 @@
     "test:gas": "REPORT_GAS=true hardhat test",
     "test:coverage": "hardhat coverage",
     "deploy:localhost": "hardhat run scripts/deploy.ts --network localhost",
+    "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
     "deploy:mumbai": "hardhat run scripts/deploy.ts --network mumbai",
     "deploy:polygon": "hardhat run scripts/deploy.ts --network polygon",
     "verify:mumbai": "hardhat verify --network mumbai",

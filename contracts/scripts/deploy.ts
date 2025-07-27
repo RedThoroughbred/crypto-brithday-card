@@ -45,7 +45,9 @@ async function main() {
   
   // Save deployment info to file
   const deploymentFile = join(__dirname, `../deployments/${network.name}.json`);
-  writeFileSync(deploymentFile, JSON.stringify(deploymentInfo, null, 2));
+  writeFileSync(deploymentFile, JSON.stringify(deploymentInfo, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  , 2));
   console.log("📄 Deployment info saved to:", deploymentFile);
   
   // Wait for a few confirmations before verification
@@ -84,6 +86,10 @@ async function main() {
       ? "https://polygonscan.com"
       : "https://mumbai.polygonscan.com";
     console.log("🔗 Block Explorer:", `${explorerUrl}/address/${contractAddress}`);
+  } else if (network.name === "sepolia") {
+    console.log("🔗 Block Explorer:", `https://sepolia.etherscan.io/address/${contractAddress}`);
+  } else if (network.name === "mainnet") {
+    console.log("🔗 Block Explorer:", `https://etherscan.io/address/${contractAddress}`);
   }
   
   return {
