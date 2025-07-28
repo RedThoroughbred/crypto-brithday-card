@@ -69,6 +69,27 @@ class Settings(BaseSettings):
     PLATFORM_FEE_RATE: int = 250  # 2.5% in basis points
     FEE_RECIPIENT_ADDRESS: Optional[str] = None
     
+    # Email Configuration (Multiple providers supported)
+    FROM_EMAIL: str = "noreply@geogift.xyz"
+    
+    # SendGrid (if available)
+    SENDGRID_API_KEY: Optional[str] = None
+    
+    # Gmail SMTP (if available) 
+    GMAIL_EMAIL: Optional[str] = None
+    GMAIL_APP_PASSWORD: Optional[str] = None  # Use App Password, not regular password
+    
+    # Outlook/Hotmail SMTP (if available)
+    OUTLOOK_EMAIL: Optional[str] = None
+    OUTLOOK_PASSWORD: Optional[str] = None
+    
+    # Generic SMTP (for any email provider)
+    SMTP_SERVER: Optional[str] = None
+    SMTP_PORT: Optional[int] = None
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_USE_TLS: bool = True
+    
     # External APIs
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None

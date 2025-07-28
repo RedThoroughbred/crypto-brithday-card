@@ -7,6 +7,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Menu, X, Gift, Map, User, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { BalanceDisplay } from '@/components/wallet/balance-display';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Gift },
@@ -55,15 +56,13 @@ export function Header() {
             })}
           </div>
 
-          {/* Connect Button */}
-          <div className="hidden md:block">
+          {/* Connect Button & Balance */}
+          <div className="hidden md:flex md:items-center md:space-x-4">
+            <BalanceDisplay />
             <ConnectButton 
               accountStatus="address"
               chainStatus="icon"
-              showBalance={{
-                smallScreen: false,
-                largeScreen: true,
-              }}
+              showBalance={false}
             />
           </div>
 

@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MainLayout } from '@/components/layout/main-layout';
 import { ChainStepBuilder, ChainStep } from '@/components/chain-wizard/chain-step-builder';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +22,7 @@ const createChainSchema = z.object({
   chainTitle: z.string().min(1, 'Chain title is required').max(100, 'Title too long'),
   chainDescription: z.string().max(500, 'Description too long').optional(),
   totalAmount: z.string().min(1, 'Amount is required'),
+  currency: z.enum(['ETH', 'GGT']).default('GGT'),
   expiryDays: z.number().min(1, 'Must be at least 1 day').max(365, 'Cannot exceed 365 days'),
 });
 
@@ -102,6 +104,7 @@ export default function CreateChainPage() {
     resolver: zodResolver(createChainSchema),
     defaultValues: {
       expiryDays: 30,
+      currency: 'GGT', // Default to GGT since you have 1M tokens!
     },
   });
 
@@ -194,6 +197,7 @@ export default function CreateChainPage() {
         chainTitle: data.chainTitle,
         chainDescription: data.chainDescription,
         totalAmount: data.totalAmount,
+        currency: data.currency,
         expiryDays: data.expiryDays,
         steps: chainSteps
       });
@@ -382,18 +386,37 @@ export default function CreateChainPage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="totalAmount">Total Gift Amount (ETH)</Label>
-                        <Input
-                          id="totalAmount"
-                          {...register('totalAmount')}
-                          type="number"
-                          step="0.001"
-                          placeholder="0.1"
-                          className={errors.totalAmount ? 'border-red-500' : ''}
-                        />
+                        <Label htmlFor="totalAmount">Total Gift Amount</Label>
+                        <div className="flex space-x-2">
+                          <Input
+                            id="totalAmount"
+                            {...register('totalAmount')}
+                            type="number"
+                            step="0.001"
+                            placeholder={watchedValues.currency === 'GGT' ? '1000' : '0.1'}
+                            className={`flex-1 ${errors.totalAmount ? 'border-red-500' : ''}`}
+                          />
+                          <Select
+                            value={watchedValues.currency}
+                            onValueChange={(value) => setValue('currency', value as 'ETH' | 'GGT')}
+                          >
+                            <SelectTrigger className="w-20">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="GGT">🎁 GGT</SelectItem>
+                              <SelectItem value="ETH">Ξ ETH</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                         {errors.totalAmount && (
                           <p className="mt-1 text-sm text-red-600">
                             {errors.totalAmount.message}
+                          </p>
+                        )}
+                        {watchedValues.currency === 'GGT' && (
+                          <p className="mt-1 text-xs text-green-600">
+                            💰 Using your custom GeoGift tokens! You have 1,000,000 GGT available.
                           </p>
                         )}
                       </div>
@@ -464,7 +487,10 @@ export default function CreateChainPage() {
                         </div>
                         <div>
                           <span className="text-gray-600">Total Amount:</span>
-                          <div className="font-medium">{watchedValues.totalAmount} ETH</div>
+                          <div className="font-medium">
+                            {watchedValues.totalAmount} {watchedValues.currency || 'GGT'}
+                            {watchedValues.currency === 'GGT' && <span className="ml-1">🎁</span>}
+                          </div>
                         </div>
                         <div>
                           <span className="text-gray-600">Steps:</span>

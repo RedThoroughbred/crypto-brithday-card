@@ -1,18 +1,18 @@
 """Email service for sending gift notifications"""
 import os
-from typing import Optional
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Content
+from typing import Optional, Dict, Any
+from pathlib import Path
+from datetime import datetime
 from app.core.config import settings
 
-class EmailService:
+# Import the new flexible email system
+from app.services.email_providers import email_service as flexible_email_service
+
+class LegacyEmailService:
+    """Legacy email service for backward compatibility"""
     def __init__(self):
-        self.sendgrid_api_key = settings.SENDGRID_API_KEY
-        self.from_email = settings.FROM_EMAIL
-        self.client = None
-        
-        if self.sendgrid_api_key:
-            self.client = SendGridAPIClient(api_key=self.sendgrid_api_key)
+        # Use the new flexible email service
+        pass
     
     async def send_gift_notification(
         self,
@@ -216,5 +216,133 @@ class EmailService:
             print(f"❌ Wallet help email error: {str(e)}")
             return False
 
-# Global email service instance
-email_service = EmailService()
+    async def send_gift_chain_notification(
+        self,
+        recipient_email: str,
+        gift_data: Dict[str, Any]
+    ) -> bool:
+        """Send beautiful gift chain notification email using template"""
+        
+        if not self.client:
+            print("⚠️  SendGrid not configured - email would be sent to:", recipient_email)
+            print(f"Gift URL: {gift_data.get('claim_url')}")
+            return True  # Return success for development
+        
+        try:
+            # Check if template exists, use inline HTML if not
+            template_path = Path(__file__).parent.parent / "templates" / "gift_chain_email.html"
+            
+            if template_path.exists():
+                # Use Jinja2 template
+                template = self.jinja_env.get_template("gift_chain_email.html")
+                
+                # Prepare template data with defaults
+                template_data = {
+                    "recipient_name": gift_data.get("recipient_name"),
+                    "sender_name": gift_data.get("sender_name", gift_data.get("giver_name")),
+                    "gift_type": gift_data.get("gift_type", "chain"),
+                    "gift_title": gift_data.get("title", "A Special Gift Awaits!"),
+                    "gift_message": gift_data.get("message", "Someone special has sent you a gift!"),
+                    "total_amount": gift_data.get("amount", "0.001"),
+                    "currency": gift_data.get("currency", "ETH"),
+                    "claim_url": gift_data.get("claim_url"),
+                    "expiry_date": gift_data.get("expiry_date", "30 days"),
+                    "total_steps": gift_data.get("total_steps", 1),
+                    "first_step_title": gift_data.get("first_step_title", "Your First Challenge"),
+                    "first_step_type": gift_data.get("first_step_type", "gps"),
+                    "estimated_duration": gift_data.get("estimated_duration", "30-60 minutes"),
+                    "theme": gift_data.get("theme", "custom")
+                }
+                
+                html_content = template.render(**template_data)
+            else:
+                # Fallback to inline template
+                html_content = await self._generate_inline_email_html(gift_data)
+            
+            # Determine subject based on gift type
+            if gift_data.get("gift_type") == "chain":
+                subject = f"🎁 {gift_data.get('title', 'A Multi-Step Adventure Awaits!')} - {gift_data.get('amount', '0.001')} {gift_data.get('currency', 'ETH')}"
+            else:
+                subject = f"🎁 You've received {gift_data.get('amount', '0.001')} {gift_data.get('currency', 'ETH')}!"
+            
+            # Create mail object
+            message = Mail(
+                from_email=Email(self.from_email),
+                to_emails=[To(recipient_email)],
+                subject=subject,
+                html_content=Content("text/html", html_content)
+            )
+            
+            # Send email
+            response = self.client.send(message)
+            
+            if response.status_code == 202:
+                print(f"✅ Gift notification sent to {recipient_email}")
+                return True
+            else:
+                print(f"❌ Failed to send email: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Email sending error: {str(e)}")
+            return False
+    
+    async def _generate_inline_email_html(self, gift_data: Dict[str, Any]) -> str:
+        """Generate inline HTML email when template file is not available"""
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>{gift_data.get('title', 'GeoGift')}</title>
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; margin: 0; padding: 0; background-color: #f8f9fa; }}
+                .container {{ max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; }}
+                .header {{ background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%); padding: 40px 20px; text-align: center; color: white; }}
+                .gift-icon {{ width: 80px; height: 80px; margin: 0 auto 20px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; }}
+                .content {{ padding: 40px 30px; }}
+                .amount-badge {{ display: inline-block; background: #10b981; color: white; padding: 8px 16px; border-radius: 20px; font-weight: 600; margin: 10px 0; }}
+                .cta-button {{ display: inline-block; padding: 16px 32px; background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%); color: white !important; text-decoration: none; border-radius: 50px; font-weight: 600; font-size: 16px; margin: 20px 0; }}
+                .step-card {{ background: #f8f9fa; border-radius: 12px; padding: 20px; margin: 20px 0; border-left: 4px solid #8b5cf6; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <div class="gift-icon">🎁</div>
+                    <h1 style="margin: 0; font-size: 28px; font-weight: 700;">
+                        {gift_data.get('title', 'A Special Gift Awaits!')}
+                    </h1>
+                    <p style="margin: 10px 0 0; opacity: 0.9;">
+                        From {gift_data.get('sender_name', 'Someone Special')}
+                    </p>
+                </div>
+                
+                <div class="content">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <p style="font-size: 18px; color: #374151; line-height: 1.6;">
+                            {gift_data.get('message', 'You have received a special gift!')}
+                        </p>
+                        <span class="amount-badge">
+                            {gift_data.get('amount', '0.001')} {gift_data.get('currency', 'ETH')}
+                        </span>
+                    </div>
+                    
+                    {'<div style="margin: 30px 0;"><h2 style="color: #1f2937;">Your Adventure Awaits! 🗺️</h2><p>This gift includes ' + str(gift_data.get("total_steps", 1)) + ' exciting steps to unlock.</p></div>' if gift_data.get('gift_type') == 'chain' else ''}
+                    
+                    <div style="text-align: center; margin: 40px 0;">
+                        <a href="{gift_data.get('claim_url')}" class="cta-button">
+                            {'Start Your Adventure →' if gift_data.get('gift_type') == 'chain' else 'Claim Your Gift →'}
+                        </a>
+                        <p style="margin: 10px 0 0; color: #9ca3af; font-size: 14px;">
+                            Expires: {gift_data.get('expiry_date', '30 days')}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+# Use the flexible email service as the main service
+email_service = flexible_email_service

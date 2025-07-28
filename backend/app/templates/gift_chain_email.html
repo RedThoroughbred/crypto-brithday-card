@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ gift_title }} - A Special Gift Awaits!</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style>
+        /* Reset styles */
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+        
+        /* Email styles */
+        body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background-color: #f8f9fa !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+        
+        .header-gradient {
+            background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%);
+            padding: 40px 20px;
+            text-align: center;
+            border-radius: 12px 12px 0 0;
+        }
+        
+        .gift-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+        
+        .content-section {
+            padding: 40px 30px;
+        }
+        
+        .step-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #8b5cf6;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%);
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 20px 0;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+        }
+        
+        .amount-badge {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin: 10px 0;
+        }
+        
+        .footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+            border-radius: 0 0 12px 12px;
+        }
+        
+        .security-notice {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #92400e;
+        }
+        
+        @media screen and (max-width: 600px) {
+            .email-container {
+                width: 100% !important;
+            }
+            .content-section {
+                padding: 20px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div style="max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+        <!-- Header -->
+        <div class="header-gradient">
+            <div class="gift-icon">
+                {% if gift_type == 'chain' %}
+                    🎁
+                {% else %}
+                    🎉
+                {% endif %}
+            </div>
+            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">
+                {{ gift_title }}
+            </h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 16px;">
+                {% if sender_name %}
+                    From {{ sender_name }}
+                {% else %}
+                    A Special Gift Awaits You!
+                {% endif %}
+            </p>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="content-section">
+            <!-- Personal Message -->
+            <div style="text-align: center; margin-bottom: 30px;">
+                <p style="font-size: 18px; color: #374151; line-height: 1.6; margin: 0;">
+                    {{ gift_message }}
+                </p>
+            </div>
+            
+            <!-- Gift Amount -->
+            <div style="text-align: center;">
+                <span class="amount-badge">
+                    {{ total_amount }} {{ currency }}
+                </span>
+            </div>
+            
+            {% if gift_type == 'chain' %}
+            <!-- Chain Info -->
+            <div style="margin: 30px 0;">
+                <h2 style="color: #1f2937; font-size: 20px; margin-bottom: 15px;">
+                    Your Adventure Awaits! 🗺️
+                </h2>
+                <p style="color: #6b7280; line-height: 1.6;">
+                    This gift includes <strong>{{ total_steps }} exciting steps</strong> to unlock.
+                    {% if estimated_duration %}
+                        Estimated time: {{ estimated_duration }}
+                    {% endif %}
+                </p>
+                
+                <!-- First Step Preview -->
+                <div class="step-card">
+                    <h3 style="margin: 0 0 10px; color: #4b5563; font-size: 16px;">
+                        Step 1: {{ first_step_title }}
+                    </h3>
+                    <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                        {% if first_step_type == 'gps' %}
+                            📍 Location-based challenge
+                        {% elif first_step_type == 'video' %}
+                            🎥 Watch a special video
+                        {% elif first_step_type == 'image' %}
+                            🖼️ Visual clue awaits
+                        {% elif first_step_type == 'markdown' %}
+                            📝 Read the instructions
+                        {% elif first_step_type == 'quiz' %}
+                            🧩 Solve the puzzle
+                        {% elif first_step_type == 'password' %}
+                            🔐 Enter the secret code
+                        {% else %}
+                            🎯 Complete the challenge
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- CTA Button -->
+            <div style="text-align: center; margin: 40px 0;">
+                <a href="{{ claim_url }}" class="cta-button" style="color: white;">
+                    {% if gift_type == 'chain' %}
+                        Start Your Adventure →
+                    {% else %}
+                        Claim Your Gift →
+                    {% endif %}
+                </a>
+                <p style="margin: 10px 0 0; color: #9ca3af; font-size: 14px;">
+                    Expires on {{ expiry_date }}
+                </p>
+            </div>
+            
+            <!-- Security Notice -->
+            <div class="security-notice">
+                <strong>🔒 Security Notice:</strong> This gift is secured on the blockchain. 
+                You'll need a Web3 wallet (like MetaMask) to claim it. Your gift is protected 
+                by smart contract technology.
+            </div>
+            
+            <!-- Instructions -->
+            <div style="margin-top: 30px; padding: 20px; background: #f3f4f6; border-radius: 8px;">
+                <h3 style="margin: 0 0 15px; color: #374151; font-size: 16px;">
+                    How to Claim:
+                </h3>
+                <ol style="margin: 0; padding-left: 20px; color: #6b7280; line-height: 1.8;">
+                    <li>Click the button above or visit the claim URL</li>
+                    <li>Connect your Web3 wallet (create one free at metamask.io)</li>
+                    {% if gift_type == 'chain' %}
+                    <li>Complete each step to unlock your rewards</li>
+                    {% else %}
+                    <li>Allow location access and go to the secret spot</li>
+                    {% endif %}
+                    <li>Receive your {{ currency }} directly to your wallet!</li>
+                </ol>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p style="margin: 0 0 10px;">
+                <strong>GeoGift</strong> - Location-Verified Crypto Gifts
+            </p>
+            <p style="margin: 0 0 10px; font-size: 12px;">
+                Can't see the button? Copy this link:<br>
+                <a href="{{ claim_url }}" style="color: #8b5cf6; word-break: break-all;">{{ claim_url }}</a>
+            </p>
+            <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                Need help? Visit our <a href="https://geogift.xyz/help" style="color: #8b5cf6;">support center</a>
+            </p>
+        </div>
+    </div>
+    
+    <!-- Plain text fallback for email clients that strip HTML -->
+    <div style="display: none; font-size: 0; line-height: 0;">
+        {{ gift_title }} - You've received a {{ total_amount }} {{ currency }} gift! 
+        Message: {{ gift_message }}
+        Claim at: {{ claim_url }}
+        Expires: {{ expiry_date }}
+    </div>
+</body>
+</html>

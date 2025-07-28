@@ -3,6 +3,7 @@ import { Address } from 'viem';
 
 export const LOCATION_ESCROW_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as Address;
 export const LOCATION_CHAIN_ESCROW_ADDRESS = "0x4258C7c0c3CC0b66457d14714cec2785cbdaEa57" as Address;
+export const GGT_ESCROW_ADDRESS = "0xd756E3A8bBF1d457805d3f1Cb9793038DFef5171" as Address;
 
 // LocationEscrow Contract ABI - Only the functions we need for the frontend
 export const LOCATION_ESCROW_ABI = [
@@ -128,6 +129,66 @@ export const LOCATION_CHAIN_ESCROW_ABI = [
     ],
     "name": "ChainCreated",
     "type": "event"
+  }
+] as const;
+
+// GGT Escrow Contract ABI - For GGT token gifts
+export const GGT_ESCROW_ABI = [
+  {
+    "inputs": [
+      { "internalType": "address payable", "name": "recipient", "type": "address" },
+      { "internalType": "int256", "name": "latitude", "type": "int256" },
+      { "internalType": "int256", "name": "longitude", "type": "int256" },
+      { "internalType": "uint256", "name": "radius", "type": "uint256" },
+      { "internalType": "bytes32", "name": "clueHash", "type": "bytes32" },
+      { "internalType": "uint256", "name": "expiryTime", "type": "uint256" },
+      { "internalType": "bytes32", "name": "metadata", "type": "bytes32" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "createGift",
+    "outputs": [{ "internalType": "uint256", "name": "giftId", "type": "uint256" }],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "giftId", "type": "uint256" },
+      { "internalType": "int256", "name": "userLatitude", "type": "int256" },
+      { "internalType": "int256", "name": "userLongitude", "type": "int256" },
+      { "internalType": "bytes", "name": "locationProof", "type": "bytes" }
+    ],
+    "name": "claimGift",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "gifts",
+    "outputs": [
+      { "internalType": "address payable", "name": "giver", "type": "address" },
+      { "internalType": "address payable", "name": "recipient", "type": "address" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" },
+      { "internalType": "int256", "name": "latitude", "type": "int256" },
+      { "internalType": "int256", "name": "longitude", "type": "int256" },
+      { "internalType": "uint256", "name": "radius", "type": "uint256" },
+      { "internalType": "bytes32", "name": "clueHash", "type": "bytes32" },
+      { "internalType": "uint256", "name": "expiryTime", "type": "uint256" },
+      { "internalType": "bytes32", "name": "metadata", "type": "bytes32" },
+      { "internalType": "bool", "name": "claimed", "type": "bool" },
+      { "internalType": "bool", "name": "exists", "type": "bool" },
+      { "internalType": "uint256", "name": "claimAttempts", "type": "uint256" },
+      { "internalType": "uint256", "name": "createdAt", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "ggtToken",
+    "outputs": [{ "internalType": "contract IERC20", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
   }
 ] as const;
 

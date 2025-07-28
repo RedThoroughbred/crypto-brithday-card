@@ -14,14 +14,19 @@ import {
   DropResult,
 } from '@hello-pangea/dnd';
 
+import { StepUnlockType, StepUnlockData } from '@/types';
+
 export interface ChainStep {
   id: string;
   title: string;
   message: string;
-  latitude: number | null;
-  longitude: number | null;
-  radius: number;
+  unlockType: StepUnlockType;
+  unlockData: StepUnlockData;
   order: number;
+  // Legacy GPS fields for backward compatibility
+  latitude?: number | null;
+  longitude?: number | null;
+  radius?: number;
 }
 
 interface ChainStepBuilderProps {
@@ -45,10 +50,17 @@ export function ChainStepBuilder({
       id: `step-${Date.now()}`,
       title: `Step ${steps.length + 1}`,
       message: '',
+      unlockType: 'gps', // Default to GPS for now
+      unlockData: {
+        latitude: null,
+        longitude: null,
+        radius: 50
+      },
+      order: steps.length,
+      // Legacy fields
       latitude: null,
       longitude: null,
-      radius: 50,
-      order: steps.length
+      radius: 50
     };
     
     onStepsChange([...steps, newStep]);
@@ -95,9 +107,34 @@ export function ChainStepBuilder({
     
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        const newLat = position.coords.latitude;
+        const newLng = position.coords.longitude;
+        
+        // Check if any existing step has very similar coordinates (within 50 meters)
+        const duplicateStep = steps.find(step => {
+          if (step.id === stepId || !step.latitude || !step.longitude) return false;
+          
+          // Simple distance check (rough approximation)
+          const latDiff = Math.abs(step.latitude - newLat);
+          const lngDiff = Math.abs(step.longitude - newLng);
+          const roughDistance = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff) * 111320; // meters
+          
+          return roughDistance < 50; // Within 50 meters
+        });
+        
+        if (duplicateStep) {
+          const confirmed = confirm(
+            `⚠️ This location is very close to "${duplicateStep.title}" (within 50m).\n\n` +
+            `For a proper treasure hunt, each step should be at a different location.\n\n` +
+            `Continue anyway?`
+          );
+          
+          if (!confirmed) return;
+        }
+        
         updateStep(stepId, {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
+          latitude: newLat,
+          longitude: newLng
         });
       },
       (error) => {

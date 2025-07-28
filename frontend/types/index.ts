@@ -221,6 +221,71 @@ export interface ContractError extends AppError {
   transactionHash?: string;
 }
 
+// Step unlock types for multi-step chains
+export type StepUnlockType = 'gps' | 'video' | 'image' | 'markdown' | 'quiz' | 'password' | 'url';
+
+export interface StepUnlockData {
+  // GPS unlock
+  latitude?: number;
+  longitude?: number;
+  radius?: number;
+  
+  // Media unlock
+  mediaUrl?: string; // YouTube, image URL, etc
+  mediaType?: 'youtube' | 'image' | 'video' | 'vimeo';
+  
+  // Content unlock
+  markdownContent?: string;
+  
+  // Quiz unlock
+  question?: string;
+  answer?: string;
+  hints?: string[];
+  
+  // Password unlock
+  password?: string;
+  passwordHint?: string;
+  
+  // URL unlock (visit a website)
+  targetUrl?: string;
+  urlInstruction?: string;
+}
+
+export interface ChainStep {
+  id: string;
+  title: string;
+  message: string;
+  unlockType: StepUnlockType;
+  unlockData: StepUnlockData;
+  order: number;
+  // Visual customization
+  emoji?: string;
+  color?: string;
+  // Reward info
+  rewardAmount?: string;
+  rewardToken?: 'ETH' | 'GGT'; // Support your custom token!
+}
+
+// Email template data
+export interface GiftEmailData {
+  recipientName?: string;
+  recipientEmail: string;
+  senderName?: string;
+  giftType: 'single' | 'chain';
+  giftTitle: string;
+  giftMessage: string;
+  totalAmount: string;
+  currency: 'ETH' | 'GGT';
+  claimUrl: string;
+  expiryDate: string;
+  // Chain specific
+  totalSteps?: number;
+  firstStepTitle?: string;
+  firstStepType?: StepUnlockType;
+  estimatedDuration?: string;
+  theme?: 'birthday' | 'anniversary' | 'proposal' | 'holiday' | 'custom';
+}
+
 // Component prop types
 export interface BaseComponentProps {
   className?: string;

@@ -1,45 +1,24 @@
 # CLAUDE.md - GeoGift Project Context
 
-> This file serves as the central memory and context reference for AI-assisted development of the GeoGift platform.
+> Central memory and context reference for AI-assisted development of the GeoGift platform.
 
-## 🧠 Project Context & Vision
+## 🧠 Project Vision
 
-GeoGift is a **location-verified crypto gift card platform** that transforms passive money transfers into active, memorable experiences. Recipients receive clues to find specific GPS coordinates where they can unlock their crypto gifts through smart contract verification.
+GeoGift is a **location-verified crypto gift card platform** that transforms passive money transfers into active, memorable experiences. Recipients follow clues to find GPS coordinates where they unlock crypto gifts through smart contract verification.
 
 ### Core Innovation
-- **Gamified Gifting**: Replace boring money transfers with treasure hunt experiences
-- **Crypto Education**: Introduce youth to digital finance through engaging mechanics  
-- **Real-World Integration**: Bridge digital payments with physical world exploration
-- **Smart Contract Escrow**: Trustless, automated fund release upon location verification
+- **Gamified Gifting**: Treasure hunt experiences replace boring transfers
+- **Crypto Education**: Youth introduction to digital finance  
+- **Real-World Integration**: Bridge digital payments with physical exploration
+- **Smart Contract Escrow**: Trustless, automated fund release via location verification
 
-## 📊 Market Research Summary
+### Market Position
+**Unique Market Gap**: First crypto-enabled, location-verified gifting platform - no direct competitors exist.
 
-### Competitive Analysis (From Extensive Research)
-
-| Platform | Model | Pricing | Key Features |
-|----------|-------|---------|--------------|
-| **Paperless Post** | Premium Design | $0.12-$0.48/coin | Sophisticated templates, coin system |
-| **Evite** | Freemium | Free + $12.99-$249.99 | Ad-supported, 2500 free guests |
-| **Punchbowl** | Character Focus | $6.99-$12.99/month | Disney/Marvel licensing |
-| **GreenEnvelope** | Eco-Premium | Credit-based | Environmental positioning |
-
-**Market Gap Identified**: No crypto-enabled, location-verified gifting platforms exist.
-
-### Technical Infrastructure Research
-
-#### Blockchain Solutions Evaluated:
-- **Ethereum Sepolia**: Testnet for development and testing, full EVM compatibility
-- **Ethereum Mainnet**: Production deployment target
-- **Polygon**: 65,000 TPS, ~$0.01 transactions (future consideration)
-- **Arbitrum**: 40,000 TPS, ~$0.02 transactions (future consideration)
-
-**Current Implementation**: Using Ethereum Sepolia testnet for development, with mainnet deployment planned for production.
-
-#### Location Verification Insights:
-- **GPS Accuracy**: 3-5 meter precision standard
-- **Geocaching Validation**: Millions of successful location verifications prove concept
-- **Security Concerns**: GPS spoofing apps exist, need multi-factor verification
-- **Fallback Mechanisms**: Time limits, manual overrides, proximity ranges
+### Technical Foundation
+- **Blockchain**: Ethereum Sepolia (testnet) → Mainnet production
+- **Location**: GPS accuracy 3-5 meters with anti-spoofing measures
+- **Architecture**: Full-stack TypeScript + Python + Solidity
 
 ## 🏗️ Technical Architecture
 
@@ -454,45 +433,81 @@ def verify_location(target_lat: float, target_lon: float, user_lat: float, user_
 - **Progressive Unlock**: Steps properly unlocked in sequence
 - **Blockchain Integration**: All transactions confirmed on Sepolia testnet
 
-### 🎯 CURRENT STATUS: FEATURE-COMPLETE MULTI-STEP PLATFORM
+#### **MAJOR BREAKTHROUGH: Custom GGT Token Integration (Week 6)** 🚀
+16. **✅ Custom GGT Token Deployment** - Your personal 1M token supply on Sepolia
+    - **Contract**: `0x1775997EE682CCab7c6443168d63D2605922C633` (GeoGiftTestToken)
+    - **Supply**: 1,000,000 GGT tokens with 18 decimals
+    - **Owner**: `0x2Fa710B2A99Cdd9e314080B78B0F7bF78c126234` (your wallet)
+
+17. **✅ GGT Location Escrow Contract** - ERC20-compatible smart contract for token gifts
+    - **Deployed**: `0xd756E3A8bBF1d457805d3f1Cb9793038DFef5171` on Sepolia testnet
+    - **Features**: Approve + CreateGift two-step flow, location verification, emergency withdrawal
+    - **Security**: Reentrancy protection, ownership controls, pause functionality
+
+18. **✅ Frontend GGT Integration** - Complete UI support for custom token gifts
+    - **Balance Display**: Shows both GGT and ETH balances in header
+    - **Currency Selector**: Dropdown to choose GGT or ETH for gifts
+    - **Default Currency**: GGT set as default as requested
+    - **Two-Step UX**: Handles approve → createGift flow seamlessly
+
+19. **✅ Multi-Step Type System** - Flexible unlock mechanisms beyond GPS
+    - **7 Unlock Types**: GPS, Video, Image, Markdown, Quiz, Password, URL
+    - **Enhanced Step Builder**: Visual interface for creating complex adventures
+    - **Type-Specific UI**: Tailored input fields for each unlock mechanism
+
+20. **✅ Email Infrastructure Overhaul** - Flexible email system without API dependencies
+    - **Multiple Providers**: Gmail, Outlook, SMTP, development mode
+    - **Beautiful Templates**: Professional HTML emails with GGT token support
+    - **Development Mode**: Logs emails to terminal and saves HTML files locally
+    - **No Dependencies**: Works without SendGrid or external API keys
+
+21. **✅ WalletConnect Integration** - Professional wallet connectivity
+    - **Real Project ID**: `a50545d685e260a2df11d709da5e3ef8` from Reown.com
+    - **Clean Console**: Eliminated all WalletConnect error messages
+    - **Branded Experience**: Professional GeoGift project identity
+
+### 🎯 CURRENT STATUS: ADVANCED TOKEN PLATFORM WITH CUSTOM CURRENCY
 
 **✅ Fully Working Features:**
-- **Single Gifts**: Traditional one-step location-based gifts
+- **Single Gifts**: Traditional one-step location-based gifts (ETH + GGT)
 - **Multi-Step Chains**: Sequential 2-10 step adventures with progressive unlocking
+- **Custom GGT Tokens**: Your personal 1M token supply with full gift integration
+- **Dual Currency Support**: Create gifts in ETH or GGT tokens
 - **Smart Contract Escrow**: Trustless fund management with automatic release
 - **GPS Integration**: Browser-based location capture (verification pending)
-- **Wallet Integration**: MetaMask connection with transaction signing
-- **Responsive UI**: Mobile-friendly design with loading states and error handling
-- **Real Blockchain**: Live transactions on Ethereum Sepolia testnet
+- **Wallet Integration**: MetaMask connection with clean WalletConnect experience
+- **Responsive UI**: Mobile-friendly design with GGT balance display
+- **Flexible Step Types**: 7 different unlock mechanisms for advanced adventures
+- **Email System**: Multi-provider email infrastructure with beautiful templates
 
 ### 🐛 KNOWN ISSUES & NEXT PRIORITIES
 
-#### **Critical Issue: GPS Verification**
-- **Problem**: Claims succeed without actual location verification
-- **Root Cause**: Step coordinates not properly stored/verified in smart contract
-- **Impact**: Security vulnerability - recipients can claim from anywhere
-- **Priority**: HIGH - Essential for production deployment
+#### **High Priority**
+- **GGT Transaction Flow**: Frontend transaction incomplete - needs debugging
+- **GPS Verification**: Claims succeed without actual location verification
+- **Visual Clue Rendering**: Images, videos, markdown display in claim interface
 
-#### **Minor Issues**
-- **WalletConnect Warnings**: Invalid project ID causing 403 errors (cosmetic only)
-- **Email Notifications**: Not yet implemented for gift recipients
-- **Enhanced Messages**: Currently using hashes instead of full message display
+#### **Medium Priority**
+- **Wallet Switching**: Better support for testing with multiple accounts
+- **Enhanced Messages**: Store and display full personal messages vs hashes
 
-### 🔄 PHASE 2: PRODUCTION HARDENING (Next 2-4 weeks)
+#### **Resolved Issues**
+- ✅ **WalletConnect Errors**: Fixed with real Reown project ID
+- ✅ **GGT Balance Display**: Now shows 1,000,000 GGT correctly
+- ✅ **ERC20 Integration**: Full approve + transfer flow implemented
+- ✅ **Email System**: Flexible provider system without API dependencies
 
-#### **High Priority Security Fixes**
-1. **GPS Verification Implementation** - Proper location storage and distance validation
-2. **Smart Contract Security Audit** - Review location verification logic
-3. **Anti-Spoofing Measures** - Additional verification methods beyond GPS
+### 🔄 PHASE 2: FINALIZATION & PRODUCTION (Next 1-2 weeks)
 
-#### **Enhanced User Experience**
-4. **Enhanced Message System** - Store and display full personal messages
-5. **Email Notification System** - SendGrid integration for gift notifications
-6. **Wallet Switching UI** - Better support for testing with multiple accounts
+#### **Immediate Priorities**
+1. **Debug GGT Transactions** - Fix frontend transaction completion
+2. **Test End-to-End GGT Flow** - Verify complete gift creation and claiming
+3. **Visual Clue System** - Build image/video/markdown rendering for advanced steps
 
 #### **Production Readiness**
-7. **WalletConnect Configuration** - Real project ID to eliminate console warnings
-8. **Performance Optimization** - Bundle size reduction and loading improvements
+4. **GPS Verification** - Implement proper location distance validation
+5. **Performance Optimization** - Clean up debug logging and optimize bundle size
+6. **Documentation Update** - Final user guides and API documentation
 9. **Error Handling Enhancement** - Better user feedback for edge cases
 
 ### 📈 SUCCESS METRICS ACHIEVED

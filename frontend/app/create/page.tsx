@@ -18,11 +18,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MainLayout } from '@/components/layout/main-layout';
 
 const createGiftSchema = z.object({
   recipientAddress: z.string().min(42, 'Invalid Ethereum address').max(42, 'Invalid Ethereum address'),
   amount: z.string().min(1, 'Amount is required'),
+  currency: z.enum(['ETH', 'GGT']).default('ETH'),
   message: z.string().min(1, 'Message is required').max(500, 'Message too long'),
   clue: z.string().min(1, 'Clue is required').max(200, 'Clue too long'),
   latitude: z.number().min(-90).max(90),
@@ -66,6 +68,7 @@ export default function CreateGiftPage() {
     defaultValues: {
       radius: 50,
       expiryDays: 30,
+      currency: 'GGT', // Default to GGT since you have 1M tokens!
     },
     mode: 'onChange',
   });
@@ -107,6 +110,7 @@ export default function CreateGiftPage() {
       await createGift({
         recipientAddress: data.recipientAddress,
         amount: data.amount,
+        currency: data.currency,
         latitude: selectedLocation.lat,
         longitude: selectedLocation.lng,
         radius: data.radius,
@@ -215,19 +219,53 @@ export default function CreateGiftPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Gift Amount (ETH)
+                        Gift Amount
                       </label>
-                      <Input
-                        {...register('amount')}
-                        type="number"
-                        step="0.001"
-                        placeholder="0.1"
-                        className={errors.amount ? 'border-red-500' : ''}
-                      />
+                      <div className="flex space-x-2">
+                        <Input
+                          {...register('amount')}
+                          type="number"
+                          step="0.001"
+                          placeholder={watchedValues.currency === 'GGT' ? '100' : '0.1'}
+                          className={`flex-1 ${errors.amount ? 'border-red-500' : ''}`}
+                        />
+                        <Select
+                          value={watchedValues.currency}
+                          onValueChange={(value) => setValue('currency', value as 'ETH' | 'GGT')}
+                        >
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="GGT">
+                              <div className="flex items-center">
+                                <span className="mr-1">🎁</span>
+                                GGT
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="ETH">
+                              <div className="flex items-center">
+                                <span className="mr-1">Ξ</span>
+                                ETH
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                       {errors.amount && (
                         <p className="mt-1 text-sm text-red-600">
                           {errors.amount.message}
                         </p>
+                      )}
+                      {watchedValues.currency === 'GGT' && (
+                        <div className="mt-1 space-y-1">
+                          <p className="text-xs text-green-600">
+                            💰 Using your custom GeoGift tokens! You have 1,000,000 GGT available.
+                          </p>
+                          <p className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                            ✨ GGT token gifts now supported! This will require approval + gift creation (2 transactions).
+                          </p>
+                        </div>
                       )}
                     </div>
 
@@ -392,7 +430,10 @@ export default function CreateGiftPage() {
                         </div>
                         <div className="flex justify-between">
                           <dt className="text-sm text-gray-600">Amount:</dt>
-                          <dd className="text-sm font-medium">{watchedValues.amount} ETH</dd>
+                          <dd className="text-sm font-medium">
+                            {watchedValues.amount} {watchedValues.currency || 'GGT'}
+                            {watchedValues.currency === 'GGT' && <span className="ml-1">🎁</span>}
+                          </dd>
                         </div>
                         <div className="flex justify-between">
                           <dt className="text-sm text-gray-600">Location:</dt>
