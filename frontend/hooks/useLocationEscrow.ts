@@ -54,6 +54,10 @@ export function useLocationEscrow() {
 
   // Function to create a new gift
   const createGift = async (params: CreateGiftParams) => {
+    console.log('createGift called with params:', params);
+    console.log('Wallet address:', address);
+    console.log('Contract address:', LOCATION_ESCROW_ADDRESS);
+    
     if (!address) {
       setCreateError('Wallet not connected');
       return;
@@ -107,6 +111,25 @@ export function useLocationEscrow() {
     }
   };
 
+  // Function to claim a gift
+  const claimGift = async (giftId: number, latitude: number, longitude: number) => {
+    if (!address) {
+      throw new Error('Wallet not connected');
+    }
+
+    const contractLat = coordinateToContract(latitude);
+    const contractLon = coordinateToContract(longitude);
+
+    console.log('Claiming gift:', { giftId, latitude, longitude });
+
+    await writeContract({
+      address: LOCATION_ESCROW_ADDRESS,
+      abi: LOCATION_ESCROW_ABI,
+      functionName: 'claimGift',
+      args: [BigInt(giftId), contractLat, contractLon, '0x' as `0x${string}`],
+    });
+  };
+
   // Function to read gift details
   const useGiftDetails = (giftId: number) => {
     return useReadContract({
@@ -137,6 +160,7 @@ export function useLocationEscrow() {
     
     // Functions
     createGift,
+    claimGift,
     useGiftDetails,
     
     // Reset functions

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useAccount } from 'wagmi';
+import { useAccount, useReadContract } from 'wagmi';
+import { formatEther } from 'viem';
 import { 
   MapPin, 
   Gift, 
@@ -18,20 +19,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { MainLayout } from '@/components/layout/main-layout';
 import { formatDistance, calculateDistance } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-
-// Mock gift data - will be replaced with smart contract calls
-const mockGift = {
-  id: '1',
-  giver: '0x742d...35Cc',
-  amount: '0.1 ETH',
-  message: 'Happy Birthday! Find this special place where we had our first date. Look for the place where time stands still and memories are made.',
-  clue: 'Where the clock tower meets the sky, and lovers often say goodbye. Find the bench beneath the ancient oak, where our first promise was spoke.',
-  targetLat: 40.7831,
-  targetLng: -73.9712,
-  radius: 50,
-  expiryDate: '2024-02-15T23:59:59Z',
-  status: 'active',
-};
+import { useLocationEscrow } from '@/hooks/useLocationEscrow';
+import { LOCATION_ESCROW_ADDRESS, LOCATION_ESCROW_ABI, coordinateFromContract } from '@/lib/contracts';
 
 interface LocationState {
   latitude: number | null;
@@ -45,7 +34,16 @@ function ClaimGiftContent() {
   const { address, isConnected } = useAccount();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { claimGift } = useLocationEscrow();
   const giftId = searchParams.get('id');
+
+  // Read gift data from smart contract
+  const { data: contractGift, isLoading: isLoadingGift } = useReadContract({
+    address: LOCATION_ESCROW_ADDRESS,
+    abi: LOCATION_ESCROW_ABI,
+    functionName: 'gifts',
+    args: giftId ? [BigInt(giftId)] : undefined,
+  });
 
   const [location, setLocation] = useState<LocationState>({
     latitude: null,
@@ -59,18 +57,34 @@ function ClaimGiftContent() {
   const [canClaim, setCanClaim] = useState(false);
   const [claiming, setClaiming] = useState(false);
 
+  // Parse gift data from contract
+  const gift = contractGift ? {
+    giver: contractGift[0],
+    receiver: contractGift[1], 
+    amount: formatEther(contractGift[2]),
+    targetLat: coordinateFromContract(contractGift[3]),
+    targetLng: coordinateFromContract(contractGift[4]),
+    radius: Number(contractGift[5]),
+    claimed: contractGift[6],
+    createdAt: Number(contractGift[7]),
+    expiryTime: Number(contractGift[8]),
+    clueHash: contractGift[9],
+    message: contractGift[10] || '',
+    metadata: contractGift[11]
+  } : null;
+
   useEffect(() => {
-    if (location.latitude && location.longitude) {
+    if (location.latitude && location.longitude && gift) {
       const dist = calculateDistance(
         location.latitude,
         location.longitude,
-        mockGift.targetLat,
-        mockGift.targetLng
+        gift.targetLat,
+        gift.targetLng
       );
       setDistance(dist);
-      setCanClaim(dist <= mockGift.radius);
+      setCanClaim(dist <= gift.radius && !gift.claimed);
     }
-  }, [location.latitude, location.longitude]);
+  }, [location.latitude, location.longitude, gift]);
 
   const getCurrentLocation = () => {
     setLocation(prev => ({ ...prev, loading: true, error: null }));
@@ -122,19 +136,19 @@ function ClaimGiftContent() {
   };
 
   const handleClaim = async () => {
-    if (!canClaim) return;
+    if (!canClaim || !gift || !giftId || !location.latitude || !location.longitude) return;
 
     setClaiming(true);
     try {
-      // Here we would call the smart contract to claim the gift
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate transaction
+      await claimGift(Number(giftId), location.latitude, location.longitude);
       
       toast({
         title: 'Gift Claimed Successfully!',
-        description: `You've received ${mockGift.amount} ETH!`,
+        description: `You've received ${gift.amount} ETH!`,
       });
       
-      // Redirect to success page or dashboard
+      // Refresh after success
+      setTimeout(() => window.location.reload(), 3000);
     } catch (error) {
       toast({
         title: 'Claim Failed',
@@ -180,7 +194,41 @@ function ClaimGiftContent() {
     );
   }
 
-  const isExpired = new Date() > new Date(mockGift.expiryDate);
+  if (isLoadingGift) {
+    return (
+      <MainLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <Card className="w-full max-w-md">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-geogift-600" />
+                <span className="ml-2">Loading gift details...</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!gift) {
+    return (
+      <MainLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <CardTitle>Gift Not Found</CardTitle>
+              <CardDescription>
+                This gift does not exist or has been removed.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  const isExpired = new Date().getTime() > gift.expiryTime * 1000;
 
   return (
     <MainLayout>
@@ -194,7 +242,7 @@ function ClaimGiftContent() {
               </div>
               <h1 className="text-3xl font-bold text-gray-900">You've Received a GeoGift!</h1>
               <p className="mt-2 text-gray-600">
-                From {mockGift.giver} • {mockGift.amount}
+                From {gift.giver} • {gift.amount} ETH
               </p>
             </div>
 
@@ -205,7 +253,7 @@ function ClaimGiftContent() {
                   <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-4" />
                   <h3 className="text-lg font-medium text-red-900 mb-2">Gift Expired</h3>
                   <p className="text-red-700">
-                    This gift expired on {new Date(mockGift.expiryDate).toLocaleDateString()}.
+                    This gift expired on {new Date(gift.expiryTime * 1000).toLocaleDateString()}.
                   </p>
                 </CardContent>
               </Card>
@@ -220,7 +268,7 @@ function ClaimGiftContent() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-700 italic">"{mockGift.message}"</p>
+                    <p className="text-gray-700 italic">"{gift.message || 'No message provided'}"</p>
                   </CardContent>
                 </Card>
 
@@ -237,7 +285,7 @@ function ClaimGiftContent() {
                   </CardHeader>
                   <CardContent>
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                      <p className="text-amber-800 font-medium">"{mockGift.clue}"</p>
+                      <p className="text-amber-800 font-medium">Find the special location to unlock your gift!</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -326,7 +374,7 @@ function ClaimGiftContent() {
                                 }`}>
                                   {canClaim 
                                     ? 'You can now claim your gift!' 
-                                    : `You need to be within ${mockGift.radius}m to claim`
+                                    : `You need to be within ${gift.radius}m to claim`
                                   }
                                 </p>
                               </div>
@@ -362,7 +410,7 @@ function ClaimGiftContent() {
                         ) : canClaim ? (
                           <>
                             <Gift className="mr-2 h-4 w-4" />
-                            Claim {mockGift.amount}
+                            Claim {gift.amount} ETH
                           </>
                         ) : (
                           <>
@@ -385,7 +433,7 @@ function ClaimGiftContent() {
                 <div className="mt-6 text-center">
                   <p className="text-sm text-gray-500 flex items-center justify-center">
                     <Clock className="mr-1 h-4 w-4" />
-                    Expires on {new Date(mockGift.expiryDate).toLocaleDateString()}
+                    Expires on {new Date(gift.expiryTime * 1000).toLocaleDateString()}
                   </p>
                 </div>
               </>
