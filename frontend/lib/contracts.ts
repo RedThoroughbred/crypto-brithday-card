@@ -2,6 +2,7 @@
 import { Address } from 'viem';
 
 export const LOCATION_ESCROW_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as Address;
+export const LOCATION_CHAIN_ESCROW_ADDRESS = "0x4258C7c0c3CC0b66457d14714cec2785cbdaEa57" as Address;
 
 // LocationEscrow Contract ABI - Only the functions we need for the frontend
 export const LOCATION_ESCROW_ABI = [
@@ -73,6 +74,59 @@ export const LOCATION_ESCROW_ABI = [
       { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
     ],
     "name": "GiftClaimed",
+    "type": "event"
+  }
+] as const;
+
+// LocationChainEscrow Contract ABI - Only the functions we need for chains
+export const LOCATION_CHAIN_ESCROW_ABI = [
+  {
+    "inputs": [
+      { "internalType": "address payable", "name": "recipient", "type": "address" },
+      { "internalType": "int256[2][]", "name": "stepLocations", "type": "int256[2][]" },
+      { "internalType": "uint256[]", "name": "stepRadii", "type": "uint256[]" },
+      { "internalType": "bytes32[]", "name": "stepMessages", "type": "bytes32[]" },
+      { "internalType": "string[]", "name": "stepTitles", "type": "string[]" },
+      { "internalType": "string", "name": "chainTitle", "type": "string" },
+      { "internalType": "uint256", "name": "chainExpiryTime", "type": "uint256" },
+      { "internalType": "bytes32", "name": "chainMetadata", "type": "bytes32" }
+    ],
+    "name": "createGiftChain",
+    "outputs": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "chains",
+    "outputs": [
+      { "internalType": "uint256", "name": "chainId", "type": "uint256" },
+      { "internalType": "address payable", "name": "giver", "type": "address" },
+      { "internalType": "address payable", "name": "recipient", "type": "address" },
+      { "internalType": "uint256", "name": "totalValue", "type": "uint256" },
+      { "internalType": "uint256", "name": "currentStep", "type": "uint256" },
+      { "internalType": "uint256", "name": "totalSteps", "type": "uint256" },
+      { "internalType": "uint256", "name": "createdAt", "type": "uint256" },
+      { "internalType": "uint256", "name": "chainExpiryTime", "type": "uint256" },
+      { "internalType": "bool", "name": "chainCompleted", "type": "bool" },
+      { "internalType": "bool", "name": "chainExpired", "type": "bool" },
+      { "internalType": "bytes32", "name": "chainMetadata", "type": "bytes32" },
+      { "internalType": "string", "name": "chainTitle", "type": "string" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "chainId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "giver", "type": "address" },
+      { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "totalSteps", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "totalValue", "type": "uint256" },
+      { "indexed": false, "internalType": "string", "name": "chainTitle", "type": "string" }
+    ],
+    "name": "ChainCreated",
     "type": "event"
   }
 ] as const;

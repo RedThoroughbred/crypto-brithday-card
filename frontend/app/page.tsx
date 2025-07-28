@@ -275,17 +275,31 @@ export default function HomePage() {
               </p>
               <div className="mt-10 flex items-center justify-center gap-x-6">
                 {isConnected ? (
-                  <Button 
-                    asChild 
-                    size="lg" 
-                    variant="secondary"
-                    className="text-lg px-8 py-4"
-                  >
-                    <Link href="/create">
-                      Create Your First Gift
-                      <ArrowRight className="ml-2 h-5 w-5" />
-                    </Link>
-                  </Button>
+                  <div className="space-y-4">
+                    <Button 
+                      asChild 
+                      size="lg" 
+                      variant="secondary"
+                      className="text-lg px-8 py-4 w-full"
+                    >
+                      <Link href="/create">
+                        Create Single Gift
+                        <ArrowRight className="ml-2 h-5 w-5" />
+                      </Link>
+                    </Button>
+                    
+                    <Button 
+                      asChild
+                      size="lg" 
+                      variant="outline"
+                      className="text-lg px-8 py-4 w-full border-2 border-purple-300 text-purple-700 hover:bg-purple-50"
+                    >
+                      <Link href="/create-chain" className="flex items-center">
+                        Create Gift Chain
+                        <Star className="ml-2 h-5 w-5" />
+                      </Link>
+                    </Button>
+                  </div>
                 ) : (
                   <ConnectButton.Custom>
                     {({ openConnectModal }) => (
