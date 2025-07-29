@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { MapPin, Clock, Gift, CheckCircle, Lock, Coins } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Clock, Gift, CheckCircle, Lock, Coins } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MainLayout } from '@/components/layout/main-layout';
 import { useToast } from '@/hooks/use-toast';
-import { GGT_CHAIN_ESCROW_ADDRESS, GGT_CHAIN_ESCROW_ABI, coordinateFromContract, coordinateToContract } from '@/lib/contracts';
+import { GGT_CHAIN_ESCROW_ADDRESS, GGT_CHAIN_ESCROW_ABI, coordinateToContract } from '@/lib/contracts';
+import { StepUnlockDisplay } from '@/components/chain/step-unlock-display';
+import { prepareUnlockData, verifyUnlock } from '@/lib/unlock-types';
 
 export default function GGTChainPage() {
   const params = useParams();
@@ -33,6 +34,22 @@ export default function GGTChainPage() {
     functionName: 'getChainSteps',
     args: chainId ? [BigInt(chainId)] : undefined,
   });
+
+  // Debug steps data when it loads
+  useEffect(() => {
+    if (stepsData) {
+      console.log('Steps data loaded:', stepsData);
+      stepsData.forEach((step, index) => {
+        console.log(`Step ${index}:`, {
+          stepIndex: step.stepIndex,
+          stepType: step.stepType,
+          unlockType: step.unlockType,
+          stepTitle: step.stepTitle,
+          keys: Object.keys(step)
+        });
+      });
+    }
+  }, [stepsData]);
 
   // Claim step transaction
   const { 
@@ -86,23 +103,46 @@ export default function GGTChainPage() {
     }
   }, [claimError, toast]);
 
-  const handleClaimStep = async (stepIndex: number) => {
-    if (!currentLocation) {
+  const handleClaimStep = async (stepIndex: number, unlockData?: any) => {
+    console.log('handleClaimStep called:', { stepIndex, unlockData });
+    if (!chainId || !stepsData) return;
+
+    const step = stepsData[stepIndex];
+    console.log('Step data from contract:', step);
+    console.log('Step keys:', Object.keys(step));
+    
+    // Try different possible field names for unlock type
+    const stepType = Number(step.stepType || step.unlockType || 0);
+    console.log('Parsed step type:', stepType);
+    
+    const unlockTypeMap = ['gps', 'video', 'image', 'markdown', 'quiz', 'password', 'url'] as const;
+    const unlockType = unlockTypeMap[stepType] || 'gps';
+    console.log('Resolved unlock type:', unlockType);
+    
+    // Add current location to unlock data for GPS type
+    if (unlockType === 'gps' && currentLocation) {
+      unlockData = { ...unlockData, lat: currentLocation.lat, lng: currentLocation.lng };
+    }
+    
+    // Verify unlock data
+    const verification = verifyUnlock(unlockType, step, unlockData);
+    if (!verification.valid) {
       toast({
-        title: 'Location Required',
-        description: 'Please allow location access to claim this step.',
+        title: 'Invalid Input',
+        description: verification.error || 'Please check your input and try again.',
         variant: 'destructive',
       });
       return;
     }
-
-    if (!chainId) return;
 
     try {
       toast({
         title: 'Claiming Step...',
         description: 'Please confirm the transaction in your wallet.',
       });
+
+      // Prepare unlock data for contract
+      const { lat, lng, unlockBytes } = prepareUnlockData(unlockType, step, unlockData);
 
       claimStep({
         address: GGT_CHAIN_ESCROW_ADDRESS,
@@ -111,13 +151,18 @@ export default function GGTChainPage() {
         args: [
           BigInt(chainId),
           BigInt(stepIndex),
-          coordinateToContract(currentLocation.lat),
-          coordinateToContract(currentLocation.lng),
-          '0x' // Empty bytes for GPS unlock type
+          coordinateToContract(lat),
+          coordinateToContract(lng),
+          unlockBytes
         ],
       });
     } catch (error) {
       console.error('Error claiming step:', error);
+      toast({
+        title: 'Transaction Failed',
+        description: 'Failed to claim step. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -278,77 +323,39 @@ export default function GGTChainPage() {
                   </CardContent>
                 </Card>
               ) : Array.isArray(stepsData) && stepsData.map((step: any, index: number) => {
-                const stepNumber = index + 1;
                 const isCurrentStep = index === currentStep && !isCompleted;
-                const isCompletedStep = step.isCompleted;
-                const isUnlocked = step.isUnlocked;
-                const stepValue = step.stepValue;
-                const stepTitle = step.stepTitle;
-                const latitude = coordinateFromContract(step.latitude);
-                const longitude = coordinateFromContract(step.longitude);
-                const radius = Number(step.radius);
+                const isCompletedStep = step.completed;
+                const isUnlocked = isCurrentStep || isCompletedStep;
                 
-                return (
-                  <Card key={index} className={`${
-                    isCurrentStep ? 'border-geogift-300 bg-geogift-50' : 
-                    isCompletedStep ? 'border-green-300 bg-green-50' : 
-                    'border-gray-200'
-                  }`}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
+                // Only show the current step or completed steps to recipients
+                if (!isRecipient || (!isUnlocked && !isCompletedStep)) {
+                  return (
+                    <Card key={index} className="border-gray-200">
+                      <CardContent className="p-6">
                         <div className="flex items-center space-x-4">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-                            isCompletedStep ? 'bg-green-500 text-white' :
-                            isCurrentStep ? 'bg-geogift-500 text-white' :
-                            'bg-gray-200 text-gray-500'
-                          }`}>
-                            {isCompletedStep ? <CheckCircle className="h-5 w-5" /> : stepNumber}
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center font-semibold bg-gray-200 text-gray-500">
+                            🔒
                           </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold flex items-center gap-2">
-                              {stepTitle}
-                              {isCompletedStep && ' ✓'}
-                              {!isUnlocked && ' 🔒'}
-                              <Badge variant="outline" className="ml-2">
-                                <Coins className="h-3 w-3 mr-1" />
-                                {formatGGT(stepValue)} GGT
-                              </Badge>
-                            </h3>
-                            <p className="text-sm text-gray-600">
-                              {isCompletedStep ? 'Completed!' :
-                               isCurrentStep ? `Find location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} (${radius}m radius)` :
-                               'Locked until previous steps are complete'}
-                            </p>
+                          <div>
+                            <h3 className="font-semibold text-gray-500">Step {index + 1}</h3>
+                            <p className="text-sm text-gray-400">Locked until previous steps are complete</p>
                           </div>
                         </div>
-                        
-                        {isCurrentStep && isRecipient && (
-                          <Button 
-                            onClick={() => handleClaimStep(index)}
-                            disabled={!currentLocation || isClaimPending || isClaimConfirming}
-                            className="flex items-center space-x-2"
-                          >
-                            {isClaimPending ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                <span>Waiting for wallet...</span>
-                              </>
-                            ) : isClaimConfirming ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                <span>Confirming...</span>
-                              </>
-                            ) : (
-                              <>
-                                <MapPin className="h-4 w-4" />
-                                <span>Claim Here</span>
-                              </>
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+                
+                return (
+                  <StepUnlockDisplay
+                    key={index}
+                    step={step}
+                    stepIndex={index}
+                    isUnlocked={isCompletedStep}
+                    onUnlock={(unlockData) => handleClaimStep(index, unlockData)}
+                    isUnlocking={isClaimPending || isClaimConfirming}
+                    currentLocation={currentLocation || undefined}
+                  />
                 );
               })}
             </div>

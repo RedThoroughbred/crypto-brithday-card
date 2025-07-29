@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Trash2, MapPin, Move, GripVertical } from 'lucide-react';
+import { Plus, Trash2, MapPin, Move, GripVertical, Video, Image as ImageIcon, FileText, HelpCircle, Lock, Link } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DragDropContext,
   Droppable,
@@ -228,6 +229,98 @@ export function ChainStepBuilder({
                         </div>
                         
                         <div>
+                          <Label htmlFor={`unlock-type-${step.id}`}>Unlock Type</Label>
+                          <Select
+                            value={step.unlockType || 'gps'}
+                            onValueChange={(value: StepUnlockType) => {
+                              const updates: Partial<ChainStep> = {
+                                unlockType: value,
+                                unlockData: {}
+                              };
+                              
+                              // Set default data for each type
+                              switch (value) {
+                                case 'gps':
+                                  updates.unlockData = {
+                                    latitude: step.latitude,
+                                    longitude: step.longitude,
+                                    radius: step.radius || 50
+                                  };
+                                  break;
+                                case 'password':
+                                  updates.unlockData = { password: '', passwordHint: '' };
+                                  break;
+                                case 'quiz':
+                                  updates.unlockData = { question: '', answer: '', hints: [] };
+                                  break;
+                                case 'markdown':
+                                  updates.unlockData = { markdownContent: '' };
+                                  break;
+                                case 'video':
+                                  updates.unlockData = { mediaUrl: '', mediaType: 'youtube' };
+                                  break;
+                                case 'image':
+                                  updates.unlockData = { mediaUrl: '' };
+                                  break;
+                                case 'url':
+                                  updates.unlockData = { targetUrl: '', urlInstruction: '' };
+                                  break;
+                              }
+                              
+                              updateStep(step.id, updates);
+                            }}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="gps">
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="h-4 w-4" />
+                                  GPS Location
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="password">
+                                <div className="flex items-center gap-2">
+                                  <Lock className="h-4 w-4" />
+                                  Password
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="quiz">
+                                <div className="flex items-center gap-2">
+                                  <HelpCircle className="h-4 w-4" />
+                                  Quiz Question
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="markdown">
+                                <div className="flex items-center gap-2">
+                                  <FileText className="h-4 w-4" />
+                                  Read Message
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="video">
+                                <div className="flex items-center gap-2">
+                                  <Video className="h-4 w-4" />
+                                  Watch Video
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="image">
+                                <div className="flex items-center gap-2">
+                                  <ImageIcon className="h-4 w-4" />
+                                  View Image
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="url">
+                                <div className="flex items-center gap-2">
+                                  <Link className="h-4 w-4" />
+                                  Visit Website
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div>
                           <Label htmlFor={`message-${step.id}`}>Step Message</Label>
                           <Textarea
                             id={`message-${step.id}`}
@@ -239,71 +332,276 @@ export function ChainStepBuilder({
                           />
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <Label>Location</Label>
-                            <div className="mt-1 space-y-2">
-                              <div className="flex space-x-2">
-                                <Input
-                                  type="number"
-                                  step="any"
-                                  value={step.latitude || ''}
-                                  onChange={(e) => updateStep(step.id, { 
-                                    latitude: e.target.value ? parseFloat(e.target.value) : null 
-                                  })}
-                                  placeholder="Latitude"
-                                />
-                                <Input
-                                  type="number"
-                                  step="any"
-                                  value={step.longitude || ''}
-                                  onChange={(e) => updateStep(step.id, { 
-                                    longitude: e.target.value ? parseFloat(e.target.value) : null 
-                                  })}
-                                  placeholder="Longitude"
-                                />
+                        {/* Dynamic fields based on unlock type */}
+                        {step.unlockType === 'gps' && (
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <Label>Location</Label>
+                                <div className="mt-1 space-y-2">
+                                  <div className="flex space-x-2">
+                                    <Input
+                                      type="number"
+                                      step="any"
+                                      value={step.unlockData?.latitude || ''}
+                                      onChange={(e) => updateStep(step.id, { 
+                                        unlockData: {
+                                          ...step.unlockData,
+                                          latitude: e.target.value ? parseFloat(e.target.value) : null 
+                                        },
+                                        latitude: e.target.value ? parseFloat(e.target.value) : null
+                                      })}
+                                      placeholder="Latitude"
+                                    />
+                                    <Input
+                                      type="number"
+                                      step="any"
+                                      value={step.unlockData?.longitude || ''}
+                                      onChange={(e) => updateStep(step.id, { 
+                                        unlockData: {
+                                          ...step.unlockData,
+                                          longitude: e.target.value ? parseFloat(e.target.value) : null 
+                                        },
+                                        longitude: e.target.value ? parseFloat(e.target.value) : null
+                                      })}
+                                      placeholder="Longitude"
+                                    />
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    onClick={() => {
+                                      getCurrentLocation(step.id);
+                                      // Also update unlockData
+                                      if (navigator.geolocation) {
+                                        navigator.geolocation.getCurrentPosition(
+                                          (position) => {
+                                            updateStep(step.id, {
+                                              unlockData: {
+                                                ...step.unlockData,
+                                                latitude: position.coords.latitude,
+                                                longitude: position.coords.longitude
+                                              }
+                                            });
+                                          }
+                                        );
+                                      }
+                                    }}
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full"
+                                  >
+                                    <MapPin className="h-4 w-4 mr-2" />
+                                    Use Current Location
+                                  </Button>
+                                </div>
                               </div>
-                              <Button
-                                type="button"
-                                onClick={() => getCurrentLocation(step.id)}
-                                variant="outline"
-                                size="sm"
-                                className="w-full"
-                              >
-                                <MapPin className="h-4 w-4 mr-2" />
-                                Use Current Location
-                              </Button>
+                              
+                              <div>
+                                <Label htmlFor={`radius-${step.id}`}>
+                                  Verification Radius (meters)
+                                </Label>
+                                <Input
+                                  id={`radius-${step.id}`}
+                                  type="number"
+                                  min="5"
+                                  max="1000"
+                                  value={step.unlockData?.radius || 50}
+                                  onChange={(e) => updateStep(step.id, { 
+                                    unlockData: {
+                                      ...step.unlockData,
+                                      radius: parseInt(e.target.value) || 50 
+                                    },
+                                    radius: parseInt(e.target.value) || 50
+                                  })}
+                                  className="mt-1"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                  How close recipients need to be to claim this step
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {step.unlockData?.latitude && step.unlockData?.longitude && (
+                              <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                                <div className="flex items-center text-green-800">
+                                  <MapPin className="h-4 w-4 mr-2" />
+                                  <span className="text-sm font-medium">
+                                    Location Set: {step.unlockData.latitude.toFixed(6)}, {step.unlockData.longitude.toFixed(6)}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        
+                        {step.unlockType === 'password' && (
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor={`password-${step.id}`}>Password</Label>
+                              <Input
+                                id={`password-${step.id}`}
+                                type="text"
+                                value={step.unlockData?.password || ''}
+                                onChange={(e) => updateStep(step.id, {
+                                  unlockData: {
+                                    ...step.unlockData,
+                                    password: e.target.value
+                                  }
+                                })}
+                                placeholder="Enter the password recipients must provide"
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor={`password-hint-${step.id}`}>Password Hint (Optional)</Label>
+                              <Input
+                                id={`password-hint-${step.id}`}
+                                value={step.unlockData?.passwordHint || ''}
+                                onChange={(e) => updateStep(step.id, {
+                                  unlockData: {
+                                    ...step.unlockData,
+                                    passwordHint: e.target.value
+                                  }
+                                })}
+                                placeholder="Give recipients a hint"
+                                className="mt-1"
+                              />
                             </div>
                           </div>
-                          
+                        )}
+                        
+                        {step.unlockType === 'quiz' && (
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor={`question-${step.id}`}>Question</Label>
+                              <Input
+                                id={`question-${step.id}`}
+                                value={step.unlockData?.question || ''}
+                                onChange={(e) => updateStep(step.id, {
+                                  unlockData: {
+                                    ...step.unlockData,
+                                    question: e.target.value
+                                  }
+                                })}
+                                placeholder="What question should recipients answer?"
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor={`answer-${step.id}`}>Correct Answer</Label>
+                              <Input
+                                id={`answer-${step.id}`}
+                                value={step.unlockData?.answer || ''}
+                                onChange={(e) => updateStep(step.id, {
+                                  unlockData: {
+                                    ...step.unlockData,
+                                    answer: e.target.value
+                                  }
+                                })}
+                                placeholder="The correct answer (case-insensitive)"
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor={`hint-${step.id}`}>Hint (Optional)</Label>
+                              <Input
+                                id={`hint-${step.id}`}
+                                value={step.unlockData?.hints?.[0] || ''}
+                                onChange={(e) => updateStep(step.id, {
+                                  unlockData: {
+                                    ...step.unlockData,
+                                    hints: e.target.value ? [e.target.value] : []
+                                  }
+                                })}
+                                placeholder="Give recipients a hint"
+                                className="mt-1"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        
+                        {step.unlockType === 'markdown' && (
                           <div>
-                            <Label htmlFor={`radius-${step.id}`}>
-                              Verification Radius (meters)
-                            </Label>
-                            <Input
-                              id={`radius-${step.id}`}
-                              type="number"
-                              min="5"
-                              max="1000"
-                              value={step.radius}
-                              onChange={(e) => updateStep(step.id, { 
-                                radius: parseInt(e.target.value) || 50 
+                            <Label htmlFor={`markdown-${step.id}`}>Message Content (Markdown)</Label>
+                            <Textarea
+                              id={`markdown-${step.id}`}
+                              value={step.unlockData?.markdownContent || ''}
+                              onChange={(e) => updateStep(step.id, {
+                                unlockData: {
+                                  ...step.unlockData,
+                                  markdownContent: e.target.value
+                                }
                               })}
+                              placeholder="Write your message in Markdown format..."
+                              rows={5}
                               className="mt-1"
                             />
                             <p className="text-xs text-gray-500 mt-1">
-                              How close recipients need to be to claim this step
+                              Supports **bold**, *italic*, [links](url), and more
                             </p>
                           </div>
-                        </div>
+                        )}
                         
-                        {step.latitude && step.longitude && (
-                          <div className="bg-green-50 border border-green-200 rounded-md p-3">
-                            <div className="flex items-center text-green-800">
-                              <MapPin className="h-4 w-4 mr-2" />
-                              <span className="text-sm font-medium">
-                                Location Set: {step.latitude.toFixed(6)}, {step.longitude.toFixed(6)}
-                              </span>
+                        {(step.unlockType === 'video' || step.unlockType === 'image') && (
+                          <div>
+                            <Label htmlFor={`media-url-${step.id}`}>
+                              {step.unlockType === 'video' ? 'Video URL' : 'Image URL'}
+                            </Label>
+                            <Input
+                              id={`media-url-${step.id}`}
+                              value={step.unlockData?.mediaUrl || ''}
+                              onChange={(e) => updateStep(step.id, {
+                                unlockData: {
+                                  ...step.unlockData,
+                                  mediaUrl: e.target.value
+                                }
+                              })}
+                              placeholder={step.unlockType === 'video' ? 
+                                'https://youtube.com/watch?v=...' : 
+                                'https://example.com/image.jpg'
+                              }
+                              className="mt-1"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              {step.unlockType === 'video' ? 
+                                'YouTube, Vimeo, or direct video URLs' : 
+                                'Direct link to an image'
+                              }
+                            </p>
+                          </div>
+                        )}
+                        
+                        {step.unlockType === 'url' && (
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor={`target-url-${step.id}`}>Website URL</Label>
+                              <Input
+                                id={`target-url-${step.id}`}
+                                value={step.unlockData?.targetUrl || ''}
+                                onChange={(e) => updateStep(step.id, {
+                                  unlockData: {
+                                    ...step.unlockData,
+                                    targetUrl: e.target.value
+                                  }
+                                })}
+                                placeholder="https://example.com"
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor={`url-instruction-${step.id}`}>Instructions (Optional)</Label>
+                              <Input
+                                id={`url-instruction-${step.id}`}
+                                value={step.unlockData?.urlInstruction || ''}
+                                onChange={(e) => updateStep(step.id, {
+                                  unlockData: {
+                                    ...step.unlockData,
+                                    urlInstruction: e.target.value
+                                  }
+                                })}
+                                placeholder="What should they do on this website?"
+                                className="mt-1"
+                              />
                             </div>
                           </div>
                         )}

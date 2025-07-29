@@ -17,6 +17,9 @@ class User(Base):
     gifts_sent = relationship(
         "Gift", back_populates="sender", cascade="all, delete-orphan"
     )
+    chains_created = relationship(
+        "GiftChain", back_populates="creator", cascade="all, delete-orphan"
+    )
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

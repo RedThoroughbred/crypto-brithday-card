@@ -26,6 +26,7 @@ import {
   createClueHash
 } from '@/lib/contracts';
 import { GGT_TOKEN, ERC20_ABI } from '@/lib/tokens';
+import { UNLOCK_TYPES, createClueHash as createUnlockClueHash } from '@/lib/unlock-types';
 
 const createChainSchema = z.object({
   recipientEmail: z.string().email('Invalid email address'),
@@ -128,14 +129,18 @@ export default function CreateChainPage() {
   const [isApprovalStep, setIsApprovalStep] = useState(true);
 
   useEffect(() => {
+    console.log('Transaction effect:', { isConfirmed, hash, formData, isApprovalStep, isConfirming, isPending });
+    
     if (isConfirmed && hash && formData) {
       if (isApprovalStep) {
         // Approval confirmed, now create the chain
+        console.log('Approval confirmed, creating chain...');
         handleCreateChain(formData);
       } else {
         // Chain created successfully - extract chain ID from transaction logs
         console.log('Chain created! Transaction hash:', hash);
         console.log('Transaction receipt:', receipt);
+        console.log('Receipt logs:', receipt?.logs);
         
         // Extract chain ID from ChainCreated event
         let newChainId = null;
@@ -149,6 +154,8 @@ export default function CreateChainPage() {
                 topics: log.topics,
               });
               
+              console.log('Decoded log:', decodedLog);
+              
               if (decodedLog.eventName === 'ChainCreated') {
                 // Extract chain ID from the decoded event
                 newChainId = Number(decodedLog.args.chainId);
@@ -157,6 +164,7 @@ export default function CreateChainPage() {
               }
             } catch (error) {
               // This log is not a ChainCreated event, continue to next
+              console.log('Log decode error (expected for non-ChainCreated events):', error);
               continue;
             }
           }
@@ -168,6 +176,7 @@ export default function CreateChainPage() {
           newChainId = Date.now() % 1000; // Temporary fallback
         }
         
+        console.log('Setting chain ID:', newChainId);
         setCreatedChainId(newChainId);
         setShowChainModal(true);
         setIsCreating(false);
@@ -178,28 +187,92 @@ export default function CreateChainPage() {
         });
       }
     }
-  }, [isConfirmed, hash, receipt, formData, isApprovalStep, chainSteps.length, toast]);
+  }, [isConfirmed, hash, receipt, formData, isApprovalStep, chainSteps.length, toast, isConfirming, isPending]);
 
   const handleCreateChain = async (data: CreateChainForm) => {
     try {
       setIsApprovalStep(false);
+      console.log('handleCreateChain called with:', data);
+      console.log('Chain steps for creation:', chainSteps);
       
       toast({
         title: 'Step 2: Creating GGT Chain...',
         description: 'Please confirm the chain creation transaction in your wallet.',
       });
 
-      // Prepare step data (same as before)
-      const stepLocations = chainSteps.map(step => [
-        coordinateToContract(step.latitude!),
-        coordinateToContract(step.longitude!)
-      ]);
+      // Prepare step data with proper unlock types
+      const stepLocations = chainSteps.map(step => {
+        if (step.unlockType === 'gps' && step.unlockData?.latitude && step.unlockData?.longitude) {
+          return [
+            coordinateToContract(step.unlockData.latitude),
+            coordinateToContract(step.unlockData.longitude)
+          ];
+        }
+        // For non-GPS types, use dummy coordinates
+        return [BigInt(0), BigInt(0)];
+      });
 
-      const stepRadii = chainSteps.map(step => BigInt(step.radius));
-      const stepMessages = chainSteps.map(step => createClueHash(step.message));
+      const stepRadii = chainSteps.map(step => {
+        if (step.unlockType === 'gps') {
+          // For GPS steps, use the radius from unlock data or step data
+          const radius = step.unlockData?.radius || step.radius || 50;
+          return BigInt(Math.max(1, radius)); // Ensure minimum radius of 1 meter
+        }
+        // For non-GPS steps, use a minimal radius
+        return BigInt(1);
+      });
+      
+      // Create step messages (human-readable hints/clues)
+      const stepMessages = chainSteps.map(step => {
+        switch (step.unlockType) {
+          case 'password':
+            // For password steps, use the hint as the message
+            return step.unlockData?.passwordHint || step.message || 'Enter the correct password';
+          case 'quiz':
+            // For quiz steps, use the question as the message  
+            return step.unlockData?.question || step.message || 'Answer the question';
+          case 'markdown':
+            // For markdown steps, use the content as the message
+            return step.unlockData?.markdownContent || step.message || 'Read the message';
+          case 'gps':
+          default:
+            // For other steps, use the general message
+            return step.message || 'Complete this step to continue';
+        }
+      }); // Now sending as plain strings, not hashed
+      
+      // Create unlock data hashes for verification (passwords, quiz answers, etc.)
+      const stepUnlockDataHashes = chainSteps.map(step => {
+        switch (step.unlockType) {
+          case 'password':
+            // Hash the password for verification
+            return createUnlockClueHash(step.unlockType, { password: step.unlockData?.password || '' });
+          case 'quiz':
+            // Hash the answer for verification
+            return createUnlockClueHash(step.unlockType, { answer: step.unlockData?.answer || '' });
+          default:
+            // For other types, create a generic hash
+            return createUnlockClueHash('gps', {});
+        }
+      });
+      
       const stepTitles = chainSteps.map(step => step.title);
       const chainMetadata = createMetadataHash(data.chainDescription || '');
       const expiryTime = calculateExpiryTime(data.expiryDays);
+      
+      // Get step types as numbers
+      const stepTypes = chainSteps.map(step => {
+        const typeMap = {
+          'gps': UNLOCK_TYPES.GPS,
+          'video': UNLOCK_TYPES.VIDEO,
+          'image': UNLOCK_TYPES.IMAGE,
+          'markdown': UNLOCK_TYPES.MARKDOWN,
+          'quiz': UNLOCK_TYPES.QUIZ,
+          'password': UNLOCK_TYPES.PASSWORD,
+          'url': UNLOCK_TYPES.URL
+        };
+        return typeMap[step.unlockType] || UNLOCK_TYPES.GPS;
+      });
 
       // Calculate step values (same as before)
       const totalAmountBigInt = parseUnits(data.totalAmount, GGT_TOKEN.decimals);
@@ -213,8 +286,29 @@ export default function CreateChainPage() {
         stepValues[stepValues.length - 1] = stepValue + remainder;
       }
 
+      console.log('Calling createGiftChain with args:', {
+        recipient: data.recipientAddress,
+        stepValues: stepValues.map(v => v.toString()),
+        stepLocations: stepLocations.map(loc => loc.map(c => c.toString())),
+        stepRadii: stepRadii.map(r => r.toString()),
+        stepTypes,
+        stepUnlockDataHashes,
+        stepMessages,
+        stepTitles,
+        chainTitle: data.chainTitle,
+        expiryTime: expiryTime.toString(),
+        chainMetadata
+      });
+      
+      console.log('Chain steps detailed:', chainSteps.map(step => ({
+        title: step.title,
+        unlockType: step.unlockType,
+        radius: step.radius,
+        unlockData: step.unlockData
+      })));
+
       // Create GGT chain
-      await writeContract({
+      const result = await writeContract({
         address: GGT_CHAIN_ESCROW_ADDRESS,
         abi: GGT_CHAIN_ESCROW_ABI,
         functionName: 'createGiftChain',
@@ -223,7 +317,8 @@ export default function CreateChainPage() {
           stepValues,
           stepLocations,
           stepRadii,
-          Array(chainSteps.length).fill(0), // UnlockType.GPS for all steps
+          stepTypes, // Use actual unlock types from steps
+          stepUnlockDataHashes, // Add unlock data hashes for verification
           stepMessages,
           stepTitles,
           data.chainTitle,
@@ -231,6 +326,8 @@ export default function CreateChainPage() {
           chainMetadata
         ],
       });
+      
+      console.log('writeContract result:', result);
 
     } catch (error) {
       console.error('Error creating GGT chain:', error);
@@ -267,12 +364,14 @@ export default function CreateChainPage() {
         longitude: null,
         radius: 50,
         order: index,
+        unlockType: 'gps', // Default to GPS for all template steps
+        unlockData: {}
       }));
       setChainSteps(steps);
       setValue('chainTitle', template.name);
     }
     
-    // Auto-advance to next step after selection
+    // Auto-advance to next step after selection (step 2: chain details)
     setTimeout(() => {
       setCurrentStep(2);
     }, 100);
@@ -303,12 +402,42 @@ export default function CreateChainPage() {
       return;
     }
     
-    // Validate that all steps have locations
-    const stepsWithoutLocation = chainSteps.filter(step => !step.latitude || !step.longitude);
-    if (stepsWithoutLocation.length > 0) {
+    // Validate that GPS steps have locations
+    const gpsStepsWithoutLocation = chainSteps.filter(step => 
+      step.unlockType === 'gps' && (!step.unlockData?.latitude || !step.unlockData?.longitude)
+    );
+    if (gpsStepsWithoutLocation.length > 0) {
       toast({
         title: 'Missing Locations',
-        description: `Please set locations for all ${stepsWithoutLocation.length} step(s).`,
+        description: `Please set locations for ${gpsStepsWithoutLocation.length} GPS step(s).`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    // Validate that other steps have required data
+    const invalidSteps = chainSteps.filter(step => {
+      switch (step.unlockType) {
+        case 'password':
+          return !step.unlockData?.password;
+        case 'quiz':
+          return !step.unlockData?.question || !step.unlockData?.answer;
+        case 'markdown':
+          return !step.unlockData?.markdownContent;
+        case 'video':
+        case 'image':
+          return !step.unlockData?.mediaUrl;
+        case 'url':
+          return !step.unlockData?.targetUrl;
+        default:
+          return false;
+      }
+    });
+    
+    if (invalidSteps.length > 0) {
+      toast({
+        title: 'Incomplete Steps',
+        description: `Please complete all required fields for ${invalidSteps.length} step(s).`,
         variant: 'destructive',
       });
       return;

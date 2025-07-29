@@ -4,7 +4,7 @@ import { Address } from 'viem';
 export const LOCATION_ESCROW_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as Address;
 export const LOCATION_CHAIN_ESCROW_ADDRESS = '0x923F721fD04611eA9075e3ebc240CeAd10Bd2859' as const;
 export const GGT_ESCROW_ADDRESS = "0xd756E3A8bBF1d457805d3f1Cb9793038DFef5171" as Address;
-export const GGT_CHAIN_ESCROW_ADDRESS = "0x3c7B305fa9b36b9848E4C705c1e4Ec27c9568e1e" as Address;
+export const GGT_CHAIN_ESCROW_ADDRESS = "0x41d62a76aF050097Bb9e8995c6B865588dFF6547" as Address;
 
 // LocationEscrow Contract ABI - Only the functions we need for the frontend
 export const LOCATION_ESCROW_ABI = [
@@ -87,7 +87,7 @@ export const LOCATION_CHAIN_ESCROW_ABI = [
       { "internalType": "address payable", "name": "recipient", "type": "address" },
       { "internalType": "int256[2][]", "name": "stepLocations", "type": "int256[2][]" },
       { "internalType": "uint256[]", "name": "stepRadii", "type": "uint256[]" },
-      { "internalType": "bytes32[]", "name": "stepMessages", "type": "bytes32[]" },
+      { "internalType": "string[]", "name": "stepMessages", "type": "string[]" },
       { "internalType": "string[]", "name": "stepTitles", "type": "string[]" },
       { "internalType": "string", "name": "chainTitle", "type": "string" },
       { "internalType": "uint256", "name": "chainExpiryTime", "type": "uint256" },
@@ -202,7 +202,8 @@ export const GGT_CHAIN_ESCROW_ABI = [
       { "internalType": "int256[2][]", "name": "stepLocations", "type": "int256[2][]" },
       { "internalType": "uint256[]", "name": "stepRadii", "type": "uint256[]" },
       { "internalType": "uint8[]", "name": "stepUnlockTypes", "type": "uint8[]" },
-      { "internalType": "bytes32[]", "name": "stepMessages", "type": "bytes32[]" },
+      { "internalType": "bytes32[]", "name": "stepUnlockData", "type": "bytes32[]" },
+      { "internalType": "string[]", "name": "stepMessages", "type": "string[]" },
       { "internalType": "string[]", "name": "stepTitles", "type": "string[]" },
       { "internalType": "string", "name": "chainTitle", "type": "string" },
       { "internalType": "uint256", "name": "chainExpiryTime", "type": "uint256" },
@@ -287,7 +288,7 @@ export const GGT_CHAIN_ESCROW_ABI = [
           { "internalType": "uint256", "name": "radius", "type": "uint256" },
           { "internalType": "uint8", "name": "unlockType", "type": "uint8" },
           { "internalType": "bytes32", "name": "unlockData", "type": "bytes32" },
-          { "internalType": "bytes32", "name": "stepMessage", "type": "bytes32" },
+          { "internalType": "string", "name": "stepMessage", "type": "string" },
           { "internalType": "bytes32", "name": "stepMetadata", "type": "bytes32" },
           { "internalType": "uint256", "name": "unlockTime", "type": "uint256" },
           { "internalType": "bool", "name": "isUnlocked", "type": "bool" },

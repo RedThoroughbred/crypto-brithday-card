@@ -83,8 +83,8 @@ contract GGTLocationChainEscrow {
         int256 longitude;               // Target longitude (scaled by 1e6)
         uint256 radius;                 // Acceptable radius in meters
         UnlockType unlockType;          // How to unlock this step
-        bytes32 unlockData;             // Type-specific unlock data
-        bytes32 stepMessage;            // Message/clue for this step
+        bytes32 unlockData;             // Type-specific unlock data (hashed password/answer)
+        string stepMessage;             // Human-readable message/hint for this step
         bytes32 stepMetadata;           // Additional step data hash
         uint256 unlockTime;             // When this step becomes available
         bool isUnlocked;                // True if step is available to claim
@@ -176,7 +176,8 @@ contract GGTLocationChainEscrow {
         int256[2][] memory stepLocations,
         uint256[] memory stepRadii,
         UnlockType[] memory stepUnlockTypes,
-        bytes32[] memory stepMessages,
+        bytes32[] memory stepUnlockData,
+        string[] memory stepMessages,
         string[] memory stepTitles,
         string memory chainTitle,
         uint256 chainExpiryTime,
@@ -186,6 +187,7 @@ contract GGTLocationChainEscrow {
         require(stepValues.length >= MIN_CHAIN_LENGTH, "Chain too short");
         require(stepValues.length <= MAX_CHAIN_LENGTH, "Chain too long");
         require(stepValues.length == stepLocations.length, "Array length mismatch");
+        require(stepValues.length == stepUnlockData.length, "Array length mismatch");
         require(stepValues.length == stepRadii.length, "Array length mismatch");
         require(stepValues.length == stepUnlockTypes.length, "Array length mismatch");
         require(stepValues.length == stepMessages.length, "Array length mismatch");
@@ -232,7 +234,7 @@ contract GGTLocationChainEscrow {
                 longitude: stepLocations[i][1],
                 radius: stepRadii[i],
                 unlockType: stepUnlockTypes[i],
-                unlockData: bytes32(0), // For future use
+                unlockData: stepUnlockData[i], // Store verification hash
                 stepMessage: stepMessages[i],
                 stepMetadata: bytes32(0), // For future use
                 unlockTime: block.timestamp,
@@ -291,9 +293,20 @@ contract GGTLocationChainEscrow {
                 userLongitude
             );
             require(distance <= step.radius, "Location too far away");
+        } else if (step.unlockType == UnlockType.PASSWORD || step.unlockType == UnlockType.QUIZ) {
+            // Password/Quiz verification - compare hash of submitted answer
+            require(unlockProof.length == 32, "Invalid unlock proof length");
+            bytes32 submittedHash = bytes32(unlockProof);
+            require(submittedHash == step.unlockData, "Incorrect password/answer");
+        } else if (step.unlockType == UnlockType.VIDEO || 
+                   step.unlockType == UnlockType.IMAGE || 
+                   step.unlockType == UnlockType.MARKDOWN ||
+                   step.unlockType == UnlockType.URL) {
+            // Content viewing types - no additional verification needed
+            // These are "view-only" steps that unlock by accessing the content
+        } else {
+            revert("Unsupported unlock type");
         }
-        // Other unlock types will be implemented later
-        // For now, GPS is the only supported type
 
         // Mark step as completed
         step.isCompleted = true;
