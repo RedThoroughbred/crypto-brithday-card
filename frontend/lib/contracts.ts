@@ -4,6 +4,7 @@ import { Address } from 'viem';
 export const LOCATION_ESCROW_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as Address;
 export const LOCATION_CHAIN_ESCROW_ADDRESS = '0x923F721fD04611eA9075e3ebc240CeAd10Bd2859' as const;
 export const GGT_ESCROW_ADDRESS = "0xd756E3A8bBF1d457805d3f1Cb9793038DFef5171" as Address;
+export const GGT_CHAIN_ESCROW_ADDRESS = "0x3c7B305fa9b36b9848E4C705c1e4Ec27c9568e1e" as Address;
 
 // LocationEscrow Contract ABI - Only the functions we need for the frontend
 export const LOCATION_ESCROW_ABI = [
@@ -189,6 +190,142 @@ export const GGT_ESCROW_ABI = [
     "outputs": [{ "internalType": "contract IERC20", "name": "", "type": "address" }],
     "stateMutability": "view",
     "type": "function"
+  }
+] as const;
+
+// GGT Chain Escrow Contract ABI - For GGT token multi-step chains
+export const GGT_CHAIN_ESCROW_ABI = [
+  {
+    "inputs": [
+      { "internalType": "address payable", "name": "recipient", "type": "address" },
+      { "internalType": "uint256[]", "name": "stepValues", "type": "uint256[]" },
+      { "internalType": "int256[2][]", "name": "stepLocations", "type": "int256[2][]" },
+      { "internalType": "uint256[]", "name": "stepRadii", "type": "uint256[]" },
+      { "internalType": "uint8[]", "name": "stepUnlockTypes", "type": "uint8[]" },
+      { "internalType": "bytes32[]", "name": "stepMessages", "type": "bytes32[]" },
+      { "internalType": "string[]", "name": "stepTitles", "type": "string[]" },
+      { "internalType": "string", "name": "chainTitle", "type": "string" },
+      { "internalType": "uint256", "name": "chainExpiryTime", "type": "uint256" },
+      { "internalType": "bytes32", "name": "chainMetadata", "type": "bytes32" }
+    ],
+    "name": "createGiftChain",
+    "outputs": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "chainId", "type": "uint256" },
+      { "internalType": "uint256", "name": "stepIndex", "type": "uint256" },
+      { "internalType": "int256", "name": "userLatitude", "type": "int256" },
+      { "internalType": "int256", "name": "userLongitude", "type": "int256" },
+      { "internalType": "bytes", "name": "unlockProof", "type": "bytes" }
+    ],
+    "name": "claimStep",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "chains",
+    "outputs": [
+      { "internalType": "uint256", "name": "chainId", "type": "uint256" },
+      { "internalType": "address payable", "name": "giver", "type": "address" },
+      { "internalType": "address payable", "name": "recipient", "type": "address" },
+      { "internalType": "uint256", "name": "totalValue", "type": "uint256" },
+      { "internalType": "uint256", "name": "currentStep", "type": "uint256" },
+      { "internalType": "uint256", "name": "totalSteps", "type": "uint256" },
+      { "internalType": "uint256", "name": "createdAt", "type": "uint256" },
+      { "internalType": "uint256", "name": "chainExpiryTime", "type": "uint256" },
+      { "internalType": "bool", "name": "chainCompleted", "type": "bool" },
+      { "internalType": "bool", "name": "chainExpired", "type": "bool" },
+      { "internalType": "string", "name": "chainTitle", "type": "string" },
+      { "internalType": "bytes32", "name": "chainMetadata", "type": "bytes32" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }],
+    "name": "getChain",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "uint256", "name": "chainId", "type": "uint256" },
+          { "internalType": "address payable", "name": "giver", "type": "address" },
+          { "internalType": "address payable", "name": "recipient", "type": "address" },
+          { "internalType": "uint256", "name": "totalValue", "type": "uint256" },
+          { "internalType": "uint256", "name": "currentStep", "type": "uint256" },
+          { "internalType": "uint256", "name": "totalSteps", "type": "uint256" },
+          { "internalType": "uint256", "name": "createdAt", "type": "uint256" },
+          { "internalType": "uint256", "name": "chainExpiryTime", "type": "uint256" },
+          { "internalType": "bool", "name": "chainCompleted", "type": "bool" },
+          { "internalType": "bool", "name": "chainExpired", "type": "bool" },
+          { "internalType": "string", "name": "chainTitle", "type": "string" },
+          { "internalType": "bytes32", "name": "chainMetadata", "type": "bytes32" }
+        ],
+        "internalType": "struct GGTLocationChainEscrow.GiftChain",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "chainId", "type": "uint256" }],
+    "name": "getChainSteps",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "uint256", "name": "chainId", "type": "uint256" },
+          { "internalType": "uint256", "name": "stepIndex", "type": "uint256" },
+          { "internalType": "uint256", "name": "stepValue", "type": "uint256" },
+          { "internalType": "int256", "name": "latitude", "type": "int256" },
+          { "internalType": "int256", "name": "longitude", "type": "int256" },
+          { "internalType": "uint256", "name": "radius", "type": "uint256" },
+          { "internalType": "uint8", "name": "unlockType", "type": "uint8" },
+          { "internalType": "bytes32", "name": "unlockData", "type": "bytes32" },
+          { "internalType": "bytes32", "name": "stepMessage", "type": "bytes32" },
+          { "internalType": "bytes32", "name": "stepMetadata", "type": "bytes32" },
+          { "internalType": "uint256", "name": "unlockTime", "type": "uint256" },
+          { "internalType": "bool", "name": "isUnlocked", "type": "bool" },
+          { "internalType": "bool", "name": "isCompleted", "type": "bool" },
+          { "internalType": "string", "name": "stepTitle", "type": "string" },
+          { "internalType": "uint256", "name": "claimAttempts", "type": "uint256" }
+        ],
+        "internalType": "struct GGTLocationChainEscrow.ChainStep[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "chainId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "giver", "type": "address" },
+      { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "totalSteps", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "totalValue", "type": "uint256" },
+      { "indexed": false, "internalType": "string", "name": "chainTitle", "type": "string" }
+    ],
+    "name": "ChainCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "chainId", "type": "uint256" },
+      { "indexed": true, "internalType": "uint256", "name": "stepIndex", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "claimer", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "stepValue", "type": "uint256" }
+    ],
+    "name": "StepCompleted",
+    "type": "event"
   }
 ] as const;
 

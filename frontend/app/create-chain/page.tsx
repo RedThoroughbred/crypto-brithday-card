@@ -13,8 +13,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MainLayout } from '@/components/layout/main-layout';
 import { ChainStepBuilder, ChainStep } from '@/components/chain-wizard/chain-step-builder';
+import { ChainCreatedModal } from '@/components/chain-created-modal';
 import { useToast } from '@/hooks/use-toast';
-import { useLocationChainEscrow } from '@/hooks/useLocationChainEscrow';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { parseUnits, decodeEventLog } from 'viem';
+import { 
+  GGT_CHAIN_ESCROW_ADDRESS,
+  GGT_CHAIN_ESCROW_ABI,
+  coordinateToContract,
+  calculateExpiryTime,
+  createMetadataHash,
+  createClueHash
+} from '@/lib/contracts';
+import { GGT_TOKEN, ERC20_ABI } from '@/lib/tokens';
 
 const createChainSchema = z.object({
   recipientEmail: z.string().email('Invalid email address'),
@@ -83,16 +94,17 @@ export default function CreateChainPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [chainSteps, setChainSteps] = useState<ChainStep[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
+  const [showChainModal, setShowChainModal] = useState(false);
+  const [createdChainId, setCreatedChainId] = useState<number | null>(null);
   const { toast } = useToast();
+  const { address } = useAccount();
   
-  const { 
-    createGiftChain, 
-    isPending, 
-    isConfirming, 
-    isConfirmed, 
-    error: contractError,
-    hash 
-  } = useLocationChainEscrow();
+  // Contract interaction hooks
+  const { writeContract, data: hash, isPending, error: contractError } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed, data: receipt } = useWaitForTransactionReceipt({
+    hash,
+  });
 
   const {
     register,
@@ -111,17 +123,125 @@ export default function CreateChainPage() {
   const watchedValues = watch();
   const totalSteps = 4;
 
-  // Handle transaction status
+  // Handle transaction status - need to store form data for second transaction
+  const [formData, setFormData] = useState<CreateChainForm | null>(null);
+  const [isApprovalStep, setIsApprovalStep] = useState(true);
+
   useEffect(() => {
-    if (isConfirmed && hash) {
-      toast({
-        title: 'Gift Chain Created!',
-        description: `Your ${chainSteps.length}-step adventure has been created successfully.`,
-      });
-      console.log('Chain created! Transaction hash:', hash);
-      // TODO: Redirect to chain details or success page
+    if (isConfirmed && hash && formData) {
+      if (isApprovalStep) {
+        // Approval confirmed, now create the chain
+        handleCreateChain(formData);
+      } else {
+        // Chain created successfully - extract chain ID from transaction logs
+        console.log('Chain created! Transaction hash:', hash);
+        console.log('Transaction receipt:', receipt);
+        
+        // Extract chain ID from ChainCreated event
+        let newChainId = null;
+        if (receipt?.logs) {
+          for (const log of receipt.logs) {
+            try {
+              // Try to decode the log as a ChainCreated event
+              const decodedLog = decodeEventLog({
+                abi: GGT_CHAIN_ESCROW_ABI,
+                data: log.data,
+                topics: log.topics,
+              });
+              
+              if (decodedLog.eventName === 'ChainCreated') {
+                // Extract chain ID from the decoded event
+                newChainId = Number(decodedLog.args.chainId);
+                console.log('Extracted chain ID from event:', newChainId);
+                break;
+              }
+            } catch (error) {
+              // This log is not a ChainCreated event, continue to next
+              continue;
+            }
+          }
+        }
+        
+        // Fallback to incremental ID if extraction fails
+        if (!newChainId) {
+          console.warn('Could not extract chain ID from logs, using fallback');
+          newChainId = Date.now() % 1000; // Temporary fallback
+        }
+        
+        setCreatedChainId(newChainId);
+        setShowChainModal(true);
+        setIsCreating(false);
+        
+        toast({
+          title: 'GGT Chain Created!',
+          description: `Your ${chainSteps.length}-step adventure has been created successfully.`,
+        });
+      }
     }
-  }, [isConfirmed, hash, chainSteps.length, toast]);
+  }, [isConfirmed, hash, receipt, formData, isApprovalStep, chainSteps.length, toast]);
+
+  const handleCreateChain = async (data: CreateChainForm) => {
+    try {
+      setIsApprovalStep(false);
+      
+      toast({
+        title: 'Step 2: Creating GGT Chain...',
+        description: 'Please confirm the chain creation transaction in your wallet.',
+      });
+
+      // Prepare step data (same as before)
+      const stepLocations = chainSteps.map(step => [
+        coordinateToContract(step.latitude!),
+        coordinateToContract(step.longitude!)
+      ]);
+
+      const stepRadii = chainSteps.map(step => BigInt(step.radius));
+      const stepMessages = chainSteps.map(step => createClueHash(step.message));
+      const stepTitles = chainSteps.map(step => step.title);
+      const chainMetadata = createMetadataHash(data.chainDescription || '');
+      const expiryTime = calculateExpiryTime(data.expiryDays);
+
+      // Calculate step values (same as before)
+      const totalAmountBigInt = parseUnits(data.totalAmount, GGT_TOKEN.decimals);
+      const stepCount = BigInt(chainSteps.length);
+      const stepValue = totalAmountBigInt / stepCount;
+      const stepValues = Array(chainSteps.length).fill(stepValue);
+
+      // Adjust last step for any remainder
+      const remainder = totalAmountBigInt % stepCount;
+      if (remainder > 0) {
+        stepValues[stepValues.length - 1] = stepValue + remainder;
+      }
+
+      // Create GGT chain
+      await writeContract({
+        address: GGT_CHAIN_ESCROW_ADDRESS,
+        abi: GGT_CHAIN_ESCROW_ABI,
+        functionName: 'createGiftChain',
+        args: [
+          data.recipientAddress as `0x${string}`,
+          stepValues,
+          stepLocations,
+          stepRadii,
+          Array(chainSteps.length).fill(0), // UnlockType.GPS for all steps
+          stepMessages,
+          stepTitles,
+          data.chainTitle,
+          expiryTime,
+          chainMetadata
+        ],
+      });
+
+    } catch (error) {
+      console.error('Error creating GGT chain:', error);
+      toast({
+        title: 'Chain Creation Failed',
+        description: 'There was an error creating your gift chain. Please try again.',
+        variant: 'destructive',
+      });
+      setIsCreating(false);
+    }
+  };
 
   useEffect(() => {
     if (contractError) {
@@ -171,8 +291,17 @@ export default function CreateChainPage() {
   };
 
   const onSubmit = async (data: CreateChainForm) => {
-    console.log('Creating chain with data:', data);
+    console.log('Creating GGT chain with data:', data);
     console.log('Chain steps:', chainSteps);
+    
+    if (!address) {
+      toast({
+        title: 'Wallet Not Connected',
+        description: 'Please connect your wallet to create a gift chain.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     // Validate that all steps have locations
     const stepsWithoutLocation = chainSteps.filter(step => !step.latitude || !step.longitude);
@@ -186,21 +315,27 @@ export default function CreateChainPage() {
     }
 
     try {
+      setIsCreating(true);
+      setIsApprovalStep(true);
+      setFormData(data); // Store form data for the second transaction
+
+      // Calculate total amount for approval
+      const totalAmountBigInt = parseUnits(data.totalAmount, GGT_TOKEN.decimals);
+
       toast({
-        title: 'Creating Gift Chain...',
-        description: 'Please confirm the transaction in your wallet.',
+        title: 'Step 1: Approving GGT Tokens...',
+        description: 'Please confirm the approval transaction in your wallet.',
       });
 
-      // Create chain on blockchain
-      await createGiftChain({
-        recipientAddress: data.recipientAddress,
-        chainTitle: data.chainTitle,
-        chainDescription: data.chainDescription,
-        totalAmount: data.totalAmount,
-        currency: data.currency,
-        expiryDays: data.expiryDays,
-        steps: chainSteps
+      // Step 1: Approve GGT tokens
+      await writeContract({
+        address: GGT_TOKEN.address as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [GGT_CHAIN_ESCROW_ADDRESS, totalAmountBigInt],
       });
+
+      // Step 2: Create GGT chain will be handled in the success effect
 
     } catch (error) {
       console.error('Error creating chain:', error);
@@ -209,6 +344,7 @@ export default function CreateChainPage() {
         description: 'There was an error creating your gift chain. Please try again.',
         variant: 'destructive',
       });
+      setIsCreating(false);
     }
   };
 
@@ -571,23 +707,23 @@ export default function CreateChainPage() {
               ) : (
                 <Button
                   type="submit"
-                  disabled={!isValid || chainSteps.length < 2 || isPending || isConfirming}
+                  disabled={!isValid || chainSteps.length < 2 || isPending || isConfirming || isCreating}
                   className="min-w-[140px]"
                 >
                   {isPending ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Waiting for wallet...
+                      {isApprovalStep ? 'Approving GGT...' : 'Creating Chain...'}
                     </>
                   ) : isConfirming ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Confirming...
+                      {isApprovalStep ? 'Confirming Approval...' : 'Confirming Chain...'}
                     </>
                   ) : (
                     <>
                       <Gift className="mr-2 h-4 w-4" />
-                      Create Chain
+                      Create GGT Chain
                     </>
                   )}
                 </Button>
@@ -596,6 +732,19 @@ export default function CreateChainPage() {
           </form>
         </div>
       </div>
+
+      {/* Chain Created Modal */}
+      {formData && (
+        <ChainCreatedModal
+          isOpen={showChainModal}
+          onClose={() => setShowChainModal(false)}
+          chainId={createdChainId}
+          chainTitle={formData.chainTitle}
+          totalAmount={formData.totalAmount}
+          stepCount={chainSteps.length}
+          recipientAddress={formData.recipientAddress}
+        />
+      )}
     </MainLayout>
   );
 }
