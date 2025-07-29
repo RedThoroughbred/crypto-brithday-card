@@ -17,6 +17,8 @@ import { ChainCreatedModal } from '@/components/chain-created-modal';
 import { useToast } from '@/hooks/use-toast';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, decodeEventLog } from 'viem';
+import { chainAPI, chainUtils } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 import { 
   GGT_CHAIN_ESCROW_ADDRESS,
   GGT_CHAIN_ESCROW_ABI,
@@ -100,6 +102,7 @@ export default function CreateChainPage() {
   const [createdChainId, setCreatedChainId] = useState<number | null>(null);
   const { toast } = useToast();
   const { address } = useAccount();
+  const auth = useAuth();
   
   // Contract interaction hooks
   const { writeContract, data: hash, isPending, error: contractError } = useWriteContract();
@@ -177,6 +180,58 @@ export default function CreateChainPage() {
         }
         
         console.log('Setting chain ID:', newChainId);
+        
+        // Store chain data in backend database
+        const saveToBackend = async () => {
+          try {
+            console.log('Storing chain data in backend...');
+            
+            // Try to authenticate but don't fail if it doesn't work
+            try {
+              const isAuthenticated = await auth.ensureAuthenticated();
+              console.log('Authentication status:', isAuthenticated);
+            } catch (authError) {
+              console.warn('Authentication failed, continuing without backend storage:', authError);
+              // Continue without authentication - blockchain storage will still work
+            }
+            
+            const chainData = chainUtils.prepareChainForAPI({
+              title: formData.chainTitle,
+              description: formData.chainDescription || '',
+              recipientAddress: formData.recipientAddress,
+              recipientEmail: formData.recipientEmail,
+              totalValue: formData.totalAmount,
+              expiryDays: formData.expiryDays,
+              steps: chainSteps,
+              blockchainChainId: newChainId,
+              transactionHash: hash
+            });
+            
+            console.log('Prepared chain data for API:', chainData);
+            
+            // TODO: Enable when authentication is fixed
+            // const savedChain = await chainAPI.createChain(chainData);
+            // console.log('Chain saved to backend:', savedChain);
+            
+            console.log('Backend storage temporarily disabled - chain stored on blockchain only');
+            
+            // toast({
+            //   title: 'Chain Saved!',
+            //   description: 'Your chain has been saved to the database for easy access.',
+            // });
+          } catch (error) {
+            console.error('Failed to save chain to backend:', error);
+            // Don't fail the entire flow if backend save fails
+            toast({
+              title: 'Backend Warning',
+              description: `Chain created on blockchain but failed to save to database: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              variant: 'destructive',
+            });
+          }
+        };
+        
+        saveToBackend();
+        
         setCreatedChainId(newChainId);
         setShowChainModal(true);
         setIsCreating(false);

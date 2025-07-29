@@ -111,23 +111,59 @@ export function StepUnlockDisplay({
             </div>
             
             <div className="bg-muted/50 rounded-lg p-4">
-              <p className="text-sm font-medium mb-2">Target Location:</p>
-              <p className="text-xs text-muted-foreground">
-                Within {Number(step.radius)} meters of the secret location
+              <p className="text-sm font-medium mb-2">🎯 Location Challenge:</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                You must be within <strong>{Number(step.radius)} meters</strong> of the secret location to unlock this step.
               </p>
-              {currentLocation && (
-                <Button 
-                  onClick={() => onUnlock({ lat: currentLocation.lat, lng: currentLocation.lng })}
-                  disabled={isUnlocking}
-                  className="mt-4 w-full"
-                >
-                  {isUnlocking ? 'Verifying Location...' : 'I\'m at the location!'}
-                </Button>
+              
+              {step.stepMessage && step.stepMessage !== '0x0000000000000000000000000000000000000000000000000000000000000000' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                  <p className="text-sm text-blue-800">
+                    💡 <strong>Clue:</strong> {step.stepMessage}
+                  </p>
+                </div>
               )}
-              {!currentLocation && (
-                <p className="text-xs text-muted-foreground mt-4">
-                  Please enable location services to verify your position
-                </p>
+              
+              {currentLocation ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs text-green-600">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span>GPS location detected</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    📍 Your coordinates: {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
+                  </p>
+                  <Button 
+                    onClick={() => onUnlock({ lat: currentLocation.lat, lng: currentLocation.lng })}
+                    disabled={isUnlocking}
+                    className="w-full"
+                  >
+                    {isUnlocking ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Verifying Distance...
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="mr-2 h-4 w-4" />
+                        Verify I'm at the location!
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs text-orange-600">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                    <span>Waiting for GPS location...</span>
+                  </div>
+                  <Alert>
+                    <MapPin className="h-4 w-4" />
+                    <AlertDescription>
+                      Please enable location services in your browser to verify your position for this GPS-based unlock.
+                    </AlertDescription>
+                  </Alert>
+                </div>
               )}
             </div>
           </div>

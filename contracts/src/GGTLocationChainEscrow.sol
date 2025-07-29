@@ -334,19 +334,63 @@ contract GGTLocationChainEscrow {
      * @dev Calculate distance between two coordinates (simplified)
      * Same as GGTLocationEscrow for consistency
      */
+    /**
+     * @dev Calculate distance between two GPS coordinates using simplified Haversine
+     * @param lat1 First latitude (scaled by 1e6)
+     * @param lon1 First longitude (scaled by 1e6)
+     * @param lat2 Second latitude (scaled by 1e6)
+     * @param lon2 Second longitude (scaled by 1e6)
+     * @return distance Distance in meters
+     */
     function calculateDistance(
         int256 lat1,
         int256 lon1,
         int256 lat2,
         int256 lon2
     ) public pure returns (uint256 distance) {
-        int256 deltaLat = lat1 - lat2;
-        int256 deltaLon = lon1 - lon2;
+        // Early return for identical coordinates
+        if (lat1 == lat2 && lon1 == lon2) {
+            return 0;
+        }
         
-        uint256 latDiffMeters = uint256(deltaLat < 0 ? -deltaLat : deltaLat) * 111;
-        uint256 lonDiffMeters = uint256(deltaLon < 0 ? -deltaLon : deltaLon) * 111;
+        // Convert to absolute differences in coordinate units (1e6 scale)
+        uint256 deltaLatAbs = uint256(lat1 > lat2 ? lat1 - lat2 : lat2 - lat1);
+        uint256 deltaLonAbs = uint256(lon1 > lon2 ? lon1 - lon2 : lon2 - lon1);
         
-        distance = sqrt(latDiffMeters * latDiffMeters + lonDiffMeters * lonDiffMeters) / 1000;
+        // Convert latitude difference to meters (approximately 111.32 km per degree)
+        // 1 degree = 111320 meters, so 1 unit (1e-6 degrees) = 0.11132 meters
+        uint256 latMeters = (deltaLatAbs * 111320) / 1_000_000;
+        
+        // Convert longitude difference to meters with latitude correction
+        // Longitude distance varies by latitude: distance = cos(lat) * lon_distance
+        // Average latitude for cosine calculation
+        int256 avgLat = (lat1 + lat2) / 2;
+        uint256 avgLatAbs = uint256(avgLat < 0 ? -avgLat : avgLat);
+        
+        // Cosine approximation: cos(lat) ≈ 1 - lat²/2 (for lat in radians)
+        // Convert avgLat from 1e6 scale to radians: lat_rad = lat * π / (180 * 1e6)
+        // cos(lat) ≈ 1 - (lat * π / (180 * 1e6))² / 2
+        // Simplified: cos(lat) ≈ 1 - lat² * π² / (2 * 180² * 1e12)
+        // Using π² ≈ 9.87, 180² = 32400: cos(lat) ≈ 1 - lat² * 9.87 / (2 * 32400 * 1e12)
+        // cos(lat) ≈ 1 - lat² / (6.56e15)
+        
+        uint256 cosLatScale = 1e18;
+        if (avgLatAbs > 0) {
+            uint256 latSquared = (avgLatAbs * avgLatAbs) / 1e6; // Prevent overflow
+            uint256 correction = latSquared / 6560000; // Approximation factor
+            if (correction < cosLatScale) {
+                cosLatScale = cosLatScale - correction;
+            } else {
+                cosLatScale = cosLatScale / 2; // Fallback for extreme latitudes
+            }
+        }
+        
+        // Apply cosine correction to longitude distance
+        uint256 lonMeters = (deltaLonAbs * 111320 * cosLatScale) / (1_000_000 * 1e18);
+        
+        // Calculate distance using Pythagorean theorem: d = √(lat² + lon²)
+        uint256 distanceSquared = latMeters * latMeters + lonMeters * lonMeters;
+        distance = sqrt(distanceSquared);
     }
 
     /**

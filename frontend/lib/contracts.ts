@@ -4,7 +4,7 @@ import { Address } from 'viem';
 export const LOCATION_ESCROW_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as Address;
 export const LOCATION_CHAIN_ESCROW_ADDRESS = '0x923F721fD04611eA9075e3ebc240CeAd10Bd2859' as const;
 export const GGT_ESCROW_ADDRESS = "0xd756E3A8bBF1d457805d3f1Cb9793038DFef5171" as Address;
-export const GGT_CHAIN_ESCROW_ADDRESS = "0x41d62a76aF050097Bb9e8995c6B865588dFF6547" as Address;
+export const GGT_CHAIN_ESCROW_ADDRESS = "0x978ae71146cd4BfBe7FE3B1F72542168984F0fED" as Address;
 
 // LocationEscrow Contract ABI - Only the functions we need for the frontend
 export const LOCATION_ESCROW_ABI = [
