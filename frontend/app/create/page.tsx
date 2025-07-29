@@ -107,11 +107,11 @@ export default function CreateGiftPage() {
   if (!isConnected) {
     return (
       <MainLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <Card className="w-full max-w-md">
+        <div className="min-h-screen gradient-dark-bg flex items-center justify-center">
+          <Card className="w-full max-w-md card-glow">
             <CardHeader className="text-center">
-              <CardTitle>Connect Your Wallet</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-white">Connect Your Wallet</CardTitle>
+              <CardDescription className="text-gray-400">
                 Please connect your wallet to create a gift
               </CardDescription>
             </CardHeader>
@@ -173,13 +173,13 @@ export default function CreateGiftPage() {
 
   return (
     <MainLayout>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen gradient-dark-bg">
         <div className="px-4 py-8 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-4xl">
             {/* Header */}
             <div className="mb-8 text-center">
-              <h1 className="text-3xl font-bold text-gray-900">Create a GeoGift</h1>
-              <p className="mt-2 text-gray-600">
+              <h1 className="text-3xl font-bold text-glow-white">Create a GeoGift</h1>
+              <p className="mt-2 text-gray-400">
                 Transform your cryptocurrency into an exciting treasure hunt experience.
               </p>
             </div>

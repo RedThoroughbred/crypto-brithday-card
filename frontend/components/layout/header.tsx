@@ -21,16 +21,16 @@ export function Header() {
   const pathname = usePathname();
 
   return (
-    <header className="bg-white shadow-sm border-b">
+    <header className="bg-gray-900 shadow-lg border-b border-gray-800">
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8" aria-label="Top">
         <div className="flex w-full items-center justify-between py-4">
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-geogift-500 text-white">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500 text-black glow-cyan">
                 <Gift className="h-5 w-5" />
               </div>
-              <span className="text-xl font-bold text-gradient">GeoGift</span>
+              <span className="text-xl font-bold text-glow-cyan">GeoGift</span>
             </Link>
           </div>
 
@@ -45,8 +45,8 @@ export function Header() {
                   className={cn(
                     'flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                     pathname === item.href
-                      ? 'bg-geogift-100 text-geogift-700'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      ? 'bg-cyan-900/50 text-cyan-400 glow-cyan'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -71,6 +71,7 @@ export function Header() {
             <Button
               variant="ghost"
               size="icon"
+              className="text-gray-400 hover:text-white hover:bg-gray-800"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? (
@@ -84,7 +85,7 @@ export function Header() {
 
         {/* Mobile Navigation Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden">
+          <div className="md:hidden bg-gray-800 rounded-lg border border-gray-700 mt-2">
             <div className="space-y-1 pb-3 pt-2">
               {navigation.map((item) => {
                 const Icon = item.icon;
@@ -95,8 +96,8 @@ export function Header() {
                     className={cn(
                       'flex items-center space-x-3 rounded-md px-3 py-2 text-base font-medium',
                       pathname === item.href
-                        ? 'bg-geogift-100 text-geogift-700'
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        ? 'bg-cyan-900/50 text-cyan-400 glow-cyan'
+                        : 'text-gray-400 hover:bg-gray-700 hover:text-white'
                     )}
                     onClick={() => setMobileMenuOpen(false)}
                   >
@@ -106,7 +107,7 @@ export function Header() {
                 );
               })}
             </div>
-            <div className="border-t border-gray-200 pb-3 pt-4">
+            <div className="border-t border-gray-700 pb-3 pt-4">
               <div className="px-3">
                 <ConnectButton 
                   accountStatus="address"

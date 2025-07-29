@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAccount, useReadContract } from 'wagmi';
 import { formatEther } from 'viem';
+import { motion } from 'framer-motion';
 import { 
   MapPin, 
   Gift, 
@@ -13,7 +14,8 @@ import {
   CheckCircle,
   AlertTriangle,
   Loader2,
-  Edit3
+  Edit3,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +27,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocationEscrow } from '@/hooks/useLocationEscrow';
 import { LOCATION_ESCROW_ADDRESS, LOCATION_ESCROW_ABI, GGT_ESCROW_ADDRESS, GGT_ESCROW_ABI, coordinateFromContract } from '@/lib/contracts';
 import { GGT_TOKEN } from '@/lib/constants';
+import { Confetti, FloatingGifts } from '@/components/ui/confetti';
+import { giftAPI } from '@/lib/api';
 
 interface LocationState {
   latitude: number | null;
@@ -65,6 +69,9 @@ function ClaimGiftContent() {
   const [showManualInput, setShowManualInput] = useState(false);
   const [manualLat, setManualLat] = useState('');
   const [manualLng, setManualLng] = useState('');
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [claimSuccess, setClaimSuccess] = useState(false);
+  const [backendGift, setBackendGift] = useState<any>(null);
 
   // Parse gift data from contract
   // Note: GGT and ETH contracts have same field order, so we can use same parsing
@@ -82,9 +89,23 @@ function ClaimGiftContent() {
     exists: contractGift[10],
     claimAttempts: Number(contractGift[11]),
     createdAt: Number(contractGift[12]),
-    message: '', // Messages aren't stored on-chain
+    message: backendGift?.message || '', // Get message from backend
     currency: isGGT ? 'GGT' : 'ETH'
   } : null;
+
+  // Fetch gift message from backend
+  useEffect(() => {
+    if (giftId) {
+      giftAPI.getGiftByEscrowId(giftId)
+        .then((backendData) => {
+          setBackendGift(backendData);
+        })
+        .catch((error) => {
+          console.warn('Could not fetch gift from backend:', error);
+          // Don't fail the flow if backend is unavailable
+        });
+    }
+  }, [giftId]);
 
   useEffect(() => {
     if (location.latitude && location.longitude && gift) {
@@ -199,13 +220,17 @@ function ClaimGiftContent() {
     try {
       await claimGift(Number(giftId), location.latitude, location.longitude, isGGT);
       
+      // Show celebration
+      setClaimSuccess(true);
+      setShowConfetti(true);
+      
       toast({
-        title: 'Gift Claimed Successfully!',
+        title: '🎉 Gift Claimed Successfully!',
         description: `You've received ${gift.amount} ${gift.currency}!`,
       });
       
-      // Refresh after success
-      setTimeout(() => window.location.reload(), 3000);
+      // Refresh after celebration
+      setTimeout(() => window.location.reload(), 5000);
     } catch (error) {
       toast({
         title: 'Claim Failed',
@@ -289,19 +314,28 @@ function ClaimGiftContent() {
 
   return (
     <MainLayout>
-      <div className="min-h-screen bg-gradient-to-br from-geogift-50 via-white to-green-50">
-        <div className="px-4 py-8 sm:px-6 lg:px-8">
+      <div className="min-h-screen gradient-dark-bg relative overflow-hidden">
+        {/* Celebration Effects */}
+        <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
+        {claimSuccess && <FloatingGifts />}
+        
+        <div className="px-4 py-8 sm:px-6 lg:px-8 relative z-10">
           <div className="mx-auto max-w-2xl">
             {/* Gift Header */}
-            <div className="text-center mb-8">
-              <div className="mx-auto w-16 h-16 bg-geogift-100 rounded-full flex items-center justify-center mb-4">
-                <Gift className="h-8 w-8 text-geogift-600" />
+            <motion.div 
+              className="text-center mb-8"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+            >
+              <div className="mx-auto w-16 h-16 bg-cyan-500/20 rounded-full flex items-center justify-center mb-4 glow-cyan float-animation">
+                <Gift className="h-8 w-8 text-cyan-500" />
               </div>
-              <h1 className="text-3xl font-bold text-gray-900">You've Received a GeoGift!</h1>
-              <p className="mt-2 text-gray-600">
+              <h1 className="text-3xl font-bold text-glow-white">You've Received a GeoGift!</h1>
+              <p className="mt-2 text-gray-400">
                 From {gift.giver} • {gift.amount} {gift.currency}
               </p>
-            </div>
+            </motion.div>
 
             {/* Status Check */}
             {isExpired ? (

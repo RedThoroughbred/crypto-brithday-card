@@ -142,7 +142,7 @@ class APIClient {
   private authToken: string | null = null;
 
   constructor(baseUrl: string = API_BASE_URL) {
-    this.baseURL = baseUrl + API_PREFIX;
+    this.baseURL = baseUrl;
   }
 
   setAuthToken(token: string | null) {
@@ -181,7 +181,7 @@ class APIClient {
   }
 
   async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-    const url = new URL(endpoint, this.baseURL);
+    const url = new URL(endpoint, this.baseURL + '/');
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         url.searchParams.append(key, value);
@@ -197,7 +197,8 @@ class APIClient {
   }
 
   async post<T>(endpoint: string, data?: any): Promise<T> {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
+    const url = new URL(endpoint, this.baseURL + '/');
+    const response = await fetch(url.toString(), {
       method: 'POST',
       headers: this.getHeaders(),
       body: data ? JSON.stringify(data) : undefined,
@@ -207,7 +208,8 @@ class APIClient {
   }
 
   async put<T>(endpoint: string, data?: any): Promise<T> {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
+    const url = new URL(endpoint, this.baseURL + '/');
+    const response = await fetch(url.toString(), {
       method: 'PUT',
       headers: this.getHeaders(),
       body: data ? JSON.stringify(data) : undefined,
@@ -217,7 +219,8 @@ class APIClient {
   }
 
   async delete<T>(endpoint: string): Promise<T> {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
+    const url = new URL(endpoint, this.baseURL + '/');
+    const response = await fetch(url.toString(), {
       method: 'DELETE',
       headers: this.getHeaders(),
     });
@@ -238,22 +241,22 @@ export const chainAPI = {
 
   // Test endpoint
   test: (): Promise<{ status: string; message: string }> => {
-    return apiClient.get('/chains/health/test');
+    return apiClient.get('chains/health/test');
   },
 
   // Create a new chain
   createChain: (chainData: ChainCreate): Promise<ChainResponse> => {
-    return apiClient.post('/chains/', chainData);
+    return apiClient.post('chains/', chainData);
   },
 
   // Get chain by database ID
   getChain: (chainId: number): Promise<ChainResponse> => {
-    return apiClient.get(`/chains/${chainId}`);
+    return apiClient.get(`chains/${chainId}`);
   },
 
   // Get chain by blockchain chain ID
   getChainByBlockchainId: (blockchainChainId: number): Promise<ChainResponse> => {
-    return apiClient.get(`/chains/blockchain/${blockchainChainId}`);
+    return apiClient.get(`chains/blockchain/${blockchainChainId}`);
   },
 
   // Update chain with blockchain data
@@ -266,7 +269,7 @@ export const chainAPI = {
       blockchain_chain_id: blockchainChainId.toString(),
       transaction_hash: transactionHash,
     });
-    return apiClient.put(`/chains/${chainId}/blockchain?${params}`);
+    return apiClient.put(`chains/${chainId}/blockchain?${params}`);
   },
 
   // List chains with filtering
@@ -282,12 +285,12 @@ export const chainAPI = {
     if (options?.skip !== undefined) params.skip = options.skip.toString();
     if (options?.limit !== undefined) params.limit = options.limit.toString();
 
-    return apiClient.get('/chains/', params);
+    return apiClient.get('chains/', params);
   },
 
   // Get chain statistics
   getStatistics: (): Promise<ChainStatsResponse> => {
-    return apiClient.get('/chains/stats/overview');
+    return apiClient.get('chains/stats/overview');
   },
 
   // Record a claim attempt
@@ -295,7 +298,7 @@ export const chainAPI = {
     chainId: number,
     claimData: Omit<ChainClaimCreate, 'chain_id'>
   ): Promise<ChainClaimResponse> => {
-    return apiClient.post(`/chains/${chainId}/claims`, {
+    return apiClient.post(`chains/${chainId}/claims`, {
       ...claimData,
       chain_id: chainId,
     });
@@ -310,7 +313,7 @@ export const chainAPI = {
     if (options?.skip !== undefined) params.skip = options.skip.toString();
     if (options?.limit !== undefined) params.limit = options.limit.toString();
 
-    return apiClient.get(`/chains/${chainId}/claims`, params);
+    return apiClient.get(`chains/${chainId}/claims`, params);
   },
 };
 
@@ -323,17 +326,17 @@ export const giftAPI = {
 
   // Create a new single gift
   createGift: (giftData: GiftCreate): Promise<GiftResponse> => {
-    return apiClient.post('/gifts/', giftData);
+    return apiClient.post('gifts/', giftData);
   },
 
   // Get gift by database ID
   getGift: (giftId: string): Promise<GiftResponse> => {
-    return apiClient.get(`/gifts/${giftId}`);
+    return apiClient.get(`gifts/${giftId}`);
   },
 
   // Get gift by escrow ID (used for claiming)
   getGiftByEscrowId: (escrowId: string): Promise<GiftResponse> => {
-    return apiClient.get(`/gifts/escrow/${escrowId}`);
+    return apiClient.get(`gifts/escrow/${escrowId}`);
   },
 
   // Get gifts for a specific user
@@ -345,12 +348,12 @@ export const giftAPI = {
     if (options?.skip !== undefined) params.skip = options.skip.toString();
     if (options?.limit !== undefined) params.limit = options.limit.toString();
 
-    return apiClient.get(`/gifts/user/${userAddress}`, params);
+    return apiClient.get(`gifts/user/${userAddress}`, params);
   },
 
   // Update gift status (for claiming)
   updateGiftStatus: (giftId: string, status: 'PENDING' | 'CLAIMED' | 'EXPIRED'): Promise<GiftResponse> => {
-    return apiClient.put(`/gifts/${giftId}`, { status });
+    return apiClient.put(`gifts/${giftId}`, { status });
   },
 };
 

@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAccount } from 'wagmi';
-import { MapPin, Clock, Gift, CheckCircle, Lock } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { MapPin, Clock, Gift, CheckCircle, Lock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,12 +12,15 @@ import { MainLayout } from '@/components/layout/main-layout';
 import { useChainData, useClaimChainStep } from '@/hooks/useLocationChainEscrow';
 import { useToast } from '@/hooks/use-toast';
 import { coordinateFromContract } from '@/lib/contracts';
+import { Confetti, FloatingGifts } from '@/components/ui/confetti';
 
 export default function ClaimChainPage() {
   const searchParams = useSearchParams();
   const chainId = searchParams.get('id');
   const { address, isConnected } = useAccount();
   const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [claimSuccess, setClaimSuccess] = useState(false);
   const { toast } = useToast();
   
   const { data: chainData, isLoading, error } = useChainData(chainId ? parseInt(chainId) : undefined);
@@ -49,13 +53,16 @@ export default function ClaimChainPage() {
   // Handle claim transaction status
   useEffect(() => {
     if (isClaimConfirmed && claimHash) {
+      setClaimSuccess(true);
+      setShowConfetti(true);
+      
       toast({
-        title: 'Step Claimed!',
+        title: '🎉 Step Claimed!',
         description: 'You successfully claimed this step of the chain.',
       });
       console.log('Step claimed! Transaction hash:', claimHash);
-      // Refresh chain data after successful claim
-      window.location.reload();
+      // Refresh chain data after celebration
+      setTimeout(() => window.location.reload(), 3000);
     }
   }, [isClaimConfirmed, claimHash, toast]);
 
@@ -116,12 +123,12 @@ export default function ClaimChainPage() {
   if (isLoading) {
     return (
       <MainLayout>
-        <div className="min-h-screen bg-gradient-to-br from-geogift-50 via-white to-purple-50 flex items-center justify-center">
-          <Card className="w-full max-w-md">
+        <div className="min-h-screen gradient-dark-bg flex items-center justify-center">
+          <Card className="w-full max-w-md card-glow">
             <CardContent className="p-6">
               <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-geogift-600"></div>
-                <span className="ml-3">Loading chain...</span>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+                <span className="ml-3 text-white">Loading chain...</span>
               </div>
             </CardContent>
           </Card>
@@ -133,11 +140,11 @@ export default function ClaimChainPage() {
   if (error || !chainData) {
     return (
       <MainLayout>
-        <div className="min-h-screen bg-gradient-to-br from-geogift-50 via-white to-purple-50 flex items-center justify-center">
-          <Card className="w-full max-w-md">
+        <div className="min-h-screen gradient-dark-bg flex items-center justify-center">
+          <Card className="w-full max-w-md card-glow">
             <CardHeader>
-              <CardTitle className="text-red-600">Chain Not Found</CardTitle>
-              <CardDescription>This gift chain could not be found or has expired.</CardDescription>
+              <CardTitle className="text-red-400">Chain Not Found</CardTitle>
+              <CardDescription className="text-gray-400">This gift chain could not be found or has expired.</CardDescription>
             </CardHeader>
           </Card>
         </div>
@@ -160,51 +167,66 @@ export default function ClaimChainPage() {
 
   return (
     <MainLayout>
-      <div className="min-h-screen bg-gradient-to-br from-geogift-50 via-white to-purple-50">
-        <div className="container mx-auto px-4 py-8">
+      <div className="min-h-screen gradient-dark-bg relative overflow-hidden">
+        {/* Celebration Effects */}
+        <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
+        {claimSuccess && <FloatingGifts />}
+        
+        <div className="container mx-auto px-4 py-8 relative z-10">
           <div className="max-w-4xl mx-auto">
             
             {/* Header */}
-            <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            <motion.div 
+              className="text-center mb-8"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+            >
+              <h1 className="text-4xl font-bold text-glow-white mb-4">
                 🎁 {chainTitle}
               </h1>
-              <p className="text-lg text-gray-600">
+              <p className="text-lg text-gray-400">
                 A {totalSteps}-step adventure worth {formatEth(totalValue)} ETH
               </p>
-            </div>
+            </motion.div>
 
             {/* Status Banner */}
-            <Card className="mb-8">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    {isCompleted ? (
-                      <CheckCircle className="h-8 w-8 text-green-500" />
-                    ) : isExpired ? (
-                      <Clock className="h-8 w-8 text-red-500" />
-                    ) : (
-                      <Gift className="h-8 w-8 text-geogift-600" />
-                    )}
-                    <div>
-                      <h3 className="text-xl font-semibold">
-                        {isCompleted ? 'Adventure Complete!' : 
-                         isExpired ? 'Adventure Expired' : 
-                         `Step ${currentStep + 1} of ${totalSteps}`}
-                      </h3>
-                      <p className="text-gray-600">
-                        {isCompleted ? 'You have completed all steps!' :
-                         isExpired ? 'This adventure has expired' :
-                         'Ready for your next clue?'}
-                      </p>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              <Card className="mb-8 card-glow hover:glow-cyan-intense transition-all duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      {isCompleted ? (
+                        <CheckCircle className="h-8 w-8 text-green-500 glow-pulse" />
+                      ) : isExpired ? (
+                        <Clock className="h-8 w-8 text-red-500" />
+                      ) : (
+                        <Gift className="h-8 w-8 text-cyan-500 float-animation" />
+                      )}
+                      <div>
+                        <h3 className="text-xl font-semibold text-white">
+                          {isCompleted ? 'Adventure Complete!' : 
+                           isExpired ? 'Adventure Expired' : 
+                           `Step ${currentStep + 1} of ${totalSteps}`}
+                        </h3>
+                        <p className="text-gray-400">
+                          {isCompleted ? 'You have completed all steps!' :
+                           isExpired ? 'This adventure has expired' :
+                           'Ready for your next clue?'}
+                        </p>
+                      </div>
                     </div>
+                    <Badge variant={isCompleted ? 'default' : isExpired ? 'destructive' : 'secondary'}>
+                      {isCompleted ? 'Complete' : isExpired ? 'Expired' : 'Active'}
+                    </Badge>
                   </div>
-                  <Badge variant={isCompleted ? 'default' : isExpired ? 'destructive' : 'secondary'}>
-                    {isCompleted ? 'Complete' : isExpired ? 'Expired' : 'Active'}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </motion.div>
 
             {/* Connection Check */}
             {!isConnected && (

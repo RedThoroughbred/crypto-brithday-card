@@ -45,14 +45,14 @@ export function BalanceDisplay() {
   return (
     <div className="flex items-center space-x-3 text-sm">
       <div className="flex items-center space-x-1">
-        <span className="text-gray-600">🎁</span>
-        <span className="font-medium">{formattedGGTBalance}</span>
-        <span className="text-gray-500">GGT</span>
+        <span className="text-cyan-400">🎁</span>
+        <span className="font-medium text-white">{formattedGGTBalance}</span>
+        <span className="text-gray-400">GGT</span>
       </div>
       <div className="flex items-center space-x-1">
-        <span className="text-gray-600">Ξ</span>
-        <span className="font-medium">{formattedETHBalance}</span>
-        <span className="text-gray-500">ETH</span>
+        <span className="text-cyan-400">Ξ</span>
+        <span className="font-medium text-white">{formattedETHBalance}</span>
+        <span className="text-gray-400">SEP</span>
       </div>
     </div>
   );
