@@ -5,3 +5,6 @@ So the unlocking would work like this, with media, get to the geotagged location
 It would have to be secure and not able to be intercepted. The concept is a start, but cell service-dependent could be a challenge. I would say the exception and not the rule. Maybe when the cell number is entered, the carrier map would only allow the pin to be dropped in areas with some sort of service. I will keep thinking on it. 
 
 The giver could be alerted when a receiver gets to an area. 
+
+There needs to be an AR component where the sender generates the 3d object with ai by explaining it which will show up in the exact location so when the viewer is pulled up from the app, they could see the object which will unlock something.
+

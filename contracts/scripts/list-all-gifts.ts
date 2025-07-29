@@ -15,14 +15,14 @@ async function main() {
     const lon = Number(gift.targetLon) / 1_000_000;
     
     console.log(`\nGift ID: ${i}`);
-    console.log(`- Giver: ${gift.giver}`);
-    console.log(`- Receiver: ${gift.receiver}`);
-    console.log(`- Amount: ${ethers.formatEther(gift.amount)} ETH`);
-    console.log(`- Location: ${lat}, ${lon} (radius: ${gift.radius}m)`);
-    console.log(`- Claimed: ${gift.claimed ? "✓ YES" : "✗ NO"}`);
-    console.log(`- Message: ${gift.message || "(no message)"}`);
+    console.log(`- Giver: ${gift[0]}`);  // gift.giver
+    console.log(`- Receiver: ${gift[1]}`);  // gift.receiver
+    console.log(`- Amount: ${ethers.formatEther(gift[2])} ETH`);  // gift.amount
+    console.log(`- Location: ${lat}, ${lon} (radius: ${Number(gift[5])}m)`);  // gift.radius
+    console.log(`- Claimed: ${gift[6] ? "✓ YES" : "✗ NO"}`);  // gift.claimed
+    console.log(`- Message: ${gift[10] || "(no message)"}`);  // gift.message
     
-    if (!gift.claimed) {
+    if (!gift[6]) {  // not claimed
       console.log(`\n🎁 CLAIM URL: http://localhost:3000/claim?id=${i}`);
     }
     

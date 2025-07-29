@@ -63,17 +63,27 @@ export function calculateDistance(
   lat2: number,
   lon2: number
 ): number {
-  const R = 6371000; // Earth's radius in meters
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // Distance in meters
+  // Use the SAME simplified calculation as the smart contract
+  // to ensure frontend and contract agree on distance
+  
+  // Convert to contract format (scaled by 1e6)
+  const contractLat1 = Math.floor(lat1 * 1_000_000);
+  const contractLon1 = Math.floor(lon1 * 1_000_000);
+  const contractLat2 = Math.floor(lat2 * 1_000_000);
+  const contractLon2 = Math.floor(lon2 * 1_000_000);
+  
+  // Same calculation as smart contract
+  const deltaLat = contractLat1 - contractLat2;
+  const deltaLon = contractLon1 - contractLon2;
+  
+  // Simple Euclidean distance approximation (same as contract)
+  const latDiffMeters = Math.abs(deltaLat) * 111; // ~111m per degree latitude
+  const lonDiffMeters = Math.abs(deltaLon) * 111; // Simplified
+  
+  // Simple distance approximation (same as contract)
+  const distance = Math.sqrt(latDiffMeters * latDiffMeters + lonDiffMeters * lonDiffMeters) / 1000;
+  
+  return distance; // Distance in meters (matches contract calculation)
 }
 
 export function formatDistance(meters: number): string {

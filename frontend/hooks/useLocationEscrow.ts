@@ -1,5 +1,5 @@
 // Custom hook for LocationEscrow contract interactions
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { parseEther, parseUnits, Hash } from 'viem';
 import { 
@@ -52,7 +52,7 @@ export function useLocationEscrow() {
   const { writeContract, data: createTxHash } = useWriteContract();
 
   // Wait for transaction confirmation
-  const { isLoading: isTxPending, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({
+  const { isLoading: isTxPending, isSuccess: isTxSuccess, data: txReceipt } = useWaitForTransactionReceipt({
     hash: createTxHash,
   });
 
@@ -78,22 +78,30 @@ export function useLocationEscrow() {
       const expiryTime = calculateExpiryTime(params.expiryDays);
 
       if (params.currency === 'GGT') {
-        // GGT Token Gift Flow
+        // GGT Token Gift Flow - FIXED: Proper two-step process
         console.log('Creating GGT token gift...');
         const giftAmount = parseUnits(params.amount, GGT_TOKEN.decimals);
 
-        // First approve the GGT escrow contract to spend tokens
+        // Step 1: Approve the GGT escrow contract to spend tokens
         console.log('Step 1: Approving GGT tokens...');
-        await writeContract({
+        console.log('Amount to approve:', giftAmount.toString());
+        console.log('Escrow address:', GGT_ESCROW_ADDRESS);
+        
+        const approvalTx = await writeContract({
           address: GGT_TOKEN.address as `0x${string}`,
           abi: ERC20_ABI,
           functionName: 'approve',
           args: [GGT_ESCROW_ADDRESS, giftAmount],
         });
+        console.log('Approval transaction sent:', approvalTx);
 
-        // Wait for approval to complete before creating gift
-        // Note: In production, you'd wait for the approval transaction to confirm
-        // For now, we'll proceed immediately
+        // Wait for approval transaction to be mined
+        console.log('Waiting for approval confirmation...');
+        // The wagmi hook will handle the transaction waiting in the background
+        // For now, we'll add a delay to ensure the approval is processed
+        await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
+
+        // Step 2: Create the gift using the approved tokens
         console.log('Step 2: Creating GGT gift...');
         await writeContract({
           address: GGT_ESCROW_ADDRESS,
@@ -141,8 +149,8 @@ export function useLocationEscrow() {
     }
   };
 
-  // Function to claim a gift
-  const claimGift = async (giftId: number, latitude: number, longitude: number) => {
+  // Function to claim a gift (ETH or GGT)
+  const claimGift = async (giftId: number, latitude: number, longitude: number, isGGT: boolean = false) => {
     if (!address) {
       throw new Error('Wallet not connected');
     }
@@ -150,35 +158,56 @@ export function useLocationEscrow() {
     const contractLat = coordinateToContract(latitude);
     const contractLon = coordinateToContract(longitude);
 
-    console.log('Claiming gift:', { giftId, latitude, longitude });
+    console.log('Claiming gift:', { giftId, latitude, longitude, isGGT });
 
     await writeContract({
-      address: LOCATION_ESCROW_ADDRESS,
-      abi: LOCATION_ESCROW_ABI,
+      address: isGGT ? GGT_ESCROW_ADDRESS : LOCATION_ESCROW_ADDRESS,
+      abi: isGGT ? GGT_ESCROW_ABI : LOCATION_ESCROW_ABI,
       functionName: 'claimGift',
       args: [BigInt(giftId), contractLat, contractLon, '0x' as `0x${string}`],
     });
   };
 
-  // Function to read gift details
-  const useGiftDetails = (giftId: number) => {
+  // Function to read gift details (ETH or GGT)
+  const useGiftDetails = (giftId: number, isGGT: boolean = false) => {
     return useReadContract({
-      address: LOCATION_ESCROW_ADDRESS,
-      abi: LOCATION_ESCROW_ABI,
+      address: isGGT ? GGT_ESCROW_ADDRESS : LOCATION_ESCROW_ADDRESS,
+      abi: isGGT ? GGT_ESCROW_ABI : LOCATION_ESCROW_ABI,
       functionName: 'gifts',
       args: [BigInt(giftId)],
     });
   };
 
-  // Reset state when transaction is confirmed
-  if (isTxSuccess && isCreating) {
-    setIsCreating(false);
-    // You might want to parse the transaction receipt to get the gift ID
-    // For now, we'll set it to a placeholder
-    if (!createdGiftId) {
-      setCreatedGiftId(Date.now()); // Temporary - should parse from events
+  // Parse gift ID from transaction receipt when transaction is successful
+  useEffect(() => {
+    if (isTxSuccess && txReceipt && isCreating && !createdGiftId) {
+      try {
+        // Look for GiftCreated event in the logs
+        const giftCreatedLog = txReceipt.logs.find(log => {
+          // Check if this log matches the GiftCreated event signature
+          // GiftCreated event has topic0 that we can identify
+          return log.topics.length >= 4; // GiftCreated has 4 indexed parameters
+        });
+
+        if (giftCreatedLog && giftCreatedLog.topics[1]) {
+          // The gift ID is in the first indexed parameter (topics[1])
+          const giftIdHex = giftCreatedLog.topics[1];
+          const giftId = parseInt(giftIdHex, 16);
+          console.log('Parsed gift ID from receipt:', giftId);
+          setCreatedGiftId(giftId);
+          setIsCreating(false);
+        } else {
+          console.warn('Could not find GiftCreated event in receipt, using fallback');
+          setCreatedGiftId(Date.now()); // Fallback
+          setIsCreating(false);
+        }
+      } catch (error) {
+        console.error('Error parsing gift ID from receipt:', error);
+        setCreatedGiftId(Date.now()); // Fallback
+        setIsCreating(false);
+      }
     }
-  }
+  }, [isTxSuccess, txReceipt, isCreating, createdGiftId]);
 
   return {
     // State

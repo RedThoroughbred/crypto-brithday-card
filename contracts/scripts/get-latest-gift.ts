@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const contractAddress = "0x7cAaf328D23C257A2c1e902Ddd5Cc017963f64b1";
+  const contractAddress = "0x923F721fD04611eA9075e3ebc240CeAd10Bd2859";
   
   const contract = await ethers.getContractAt("LocationEscrow", contractAddress);
   

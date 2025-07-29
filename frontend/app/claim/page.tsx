@@ -12,15 +12,19 @@ import {
   Navigation,
   CheckCircle,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Edit3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MainLayout } from '@/components/layout/main-layout';
 import { formatDistance, calculateDistance } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useLocationEscrow } from '@/hooks/useLocationEscrow';
-import { LOCATION_ESCROW_ADDRESS, LOCATION_ESCROW_ABI, coordinateFromContract } from '@/lib/contracts';
+import { LOCATION_ESCROW_ADDRESS, LOCATION_ESCROW_ABI, GGT_ESCROW_ADDRESS, GGT_ESCROW_ABI, coordinateFromContract } from '@/lib/contracts';
+import { GGT_TOKEN } from '@/lib/constants';
 
 interface LocationState {
   latitude: number | null;
@@ -36,11 +40,13 @@ function ClaimGiftContent() {
   const { toast } = useToast();
   const { claimGift } = useLocationEscrow();
   const giftId = searchParams.get('id');
+  const giftType = searchParams.get('type') || 'ggt'; // Default to GGT since that's the primary token
+  const isGGT = giftType === 'ggt';
 
-  // Read gift data from smart contract
+  // Read gift data from smart contract (ETH or GGT)
   const { data: contractGift, isLoading: isLoadingGift } = useReadContract({
-    address: LOCATION_ESCROW_ADDRESS,
-    abi: LOCATION_ESCROW_ABI,
+    address: isGGT ? GGT_ESCROW_ADDRESS : LOCATION_ESCROW_ADDRESS,
+    abi: isGGT ? GGT_ESCROW_ABI : LOCATION_ESCROW_ABI,
     functionName: 'gifts',
     args: giftId ? [BigInt(giftId)] : undefined,
   });
@@ -56,8 +62,12 @@ function ClaimGiftContent() {
   const [distance, setDistance] = useState<number | null>(null);
   const [canClaim, setCanClaim] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [manualLat, setManualLat] = useState('');
+  const [manualLng, setManualLng] = useState('');
 
   // Parse gift data from contract
+  // Note: GGT and ETH contracts have same field order, so we can use same parsing
   const gift = contractGift ? {
     giver: contractGift[0],
     receiver: contractGift[1], 
@@ -65,12 +75,15 @@ function ClaimGiftContent() {
     targetLat: coordinateFromContract(contractGift[3]),
     targetLng: coordinateFromContract(contractGift[4]),
     radius: Number(contractGift[5]),
-    claimed: contractGift[6],
-    createdAt: Number(contractGift[7]),
-    expiryTime: Number(contractGift[8]),
-    clueHash: contractGift[9],
-    message: contractGift[10] || '',
-    metadata: contractGift[11]
+    clueHash: contractGift[6],
+    expiryTime: Number(contractGift[7]),
+    metadata: contractGift[8],
+    claimed: contractGift[9],
+    exists: contractGift[10],
+    claimAttempts: Number(contractGift[11]),
+    createdAt: Number(contractGift[12]),
+    message: '', // Messages aren't stored on-chain
+    currency: isGGT ? 'GGT' : 'ETH'
   } : null;
 
   useEffect(() => {
@@ -83,6 +96,12 @@ function ClaimGiftContent() {
       );
       setDistance(dist);
       setCanClaim(dist <= gift.radius && !gift.claimed);
+      
+      // DEBUG: Force enable claim button if distance is very small
+      if (dist <= 1 && !gift.claimed) {
+        console.log('🐛 DEBUG: Force enabling claim button - distance:', dist, 'radius:', gift.radius);
+        setCanClaim(true);
+      }
     }
   }, [location.latitude, location.longitude, gift]);
 
@@ -135,16 +154,54 @@ function ClaimGiftContent() {
     );
   };
 
+  const handleManualCoordinates = () => {
+    const lat = parseFloat(manualLat);
+    const lng = parseFloat(manualLng);
+    
+    if (isNaN(lat) || isNaN(lng)) {
+      toast({
+        title: 'Invalid Coordinates',
+        description: 'Please enter valid latitude and longitude values.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      toast({
+        title: 'Invalid Coordinates',
+        description: 'Latitude must be between -90 and 90, longitude between -180 and 180.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setLocation({
+      latitude: lat,
+      longitude: lng,
+      accuracy: null,
+      error: null,
+      loading: false,
+    });
+
+    setShowManualInput(false);
+    
+    toast({
+      title: 'Coordinates Set',
+      description: `Location set to ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+    });
+  };
+
   const handleClaim = async () => {
     if (!canClaim || !gift || !giftId || !location.latitude || !location.longitude) return;
 
     setClaiming(true);
     try {
-      await claimGift(Number(giftId), location.latitude, location.longitude);
+      await claimGift(Number(giftId), location.latitude, location.longitude, isGGT);
       
       toast({
         title: 'Gift Claimed Successfully!',
-        description: `You've received ${gift.amount} ETH!`,
+        description: `You've received ${gift.amount} ${gift.currency}!`,
       });
       
       // Refresh after success
@@ -242,7 +299,7 @@ function ClaimGiftContent() {
               </div>
               <h1 className="text-3xl font-bold text-gray-900">You've Received a GeoGift!</h1>
               <p className="mt-2 text-gray-600">
-                From {gift.giver} • {gift.amount} ETH
+                From {gift.giver} • {gift.amount} {gift.currency}
               </p>
             </div>
 
@@ -303,27 +360,119 @@ function ClaimGiftContent() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {!location.latitude ? (
-                      <div className="text-center">
-                        <Button 
-                          onClick={getCurrentLocation} 
-                          disabled={location.loading}
-                          size="lg"
-                        >
-                          {location.loading ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Getting Location...
-                            </>
-                          ) : (
-                            <>
-                              <Navigation className="mr-2 h-4 w-4" />
-                              Share My Location
-                            </>
-                          )}
-                        </Button>
-                        <p className="mt-2 text-sm text-gray-600">
-                          Allow location access to check if you're at the treasure location
-                        </p>
+                      <div className="space-y-4">
+                        {/* Automatic GPS Location */}
+                        <div className="text-center">
+                          <Button 
+                            onClick={getCurrentLocation} 
+                            disabled={location.loading}
+                            size="lg"
+                            className="w-full"
+                          >
+                            {location.loading ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Getting Location...
+                              </>
+                            ) : (
+                              <>
+                                <Navigation className="mr-2 h-4 w-4" />
+                                Use Current Location (GPS)
+                              </>
+                            )}
+                          </Button>
+                          <p className="mt-2 text-sm text-gray-600">
+                            Allow location access to automatically detect your position
+                          </p>
+                        </div>
+
+                        {/* Manual Coordinate Input Toggle */}
+                        <div className="text-center">
+                          <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                              <span className="w-full border-t" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                              <span className="bg-white px-2 text-gray-500">Or</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-center">
+                          <Button 
+                            variant="outline"
+                            onClick={() => setShowManualInput(!showManualInput)}
+                            size="lg"
+                            className="w-full"
+                          >
+                            <Edit3 className="mr-2 h-4 w-4" />
+                            Enter Coordinates Manually
+                          </Button>
+                          <p className="mt-2 text-sm text-gray-600">
+                            Type latitude and longitude coordinates directly
+                          </p>
+                        </div>
+
+                        {/* Manual Input Form */}
+                        {showManualInput && (
+                          <Card className="mt-4 border-blue-200 bg-blue-50">
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-lg">Manual Coordinates</CardTitle>
+                              <CardDescription>
+                                Enter the latitude and longitude coordinates
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div>
+                                  <Label htmlFor="latitude">Latitude</Label>
+                                  <Input
+                                    id="latitude"
+                                    type="number"
+                                    step="any"
+                                    placeholder="e.g., 37.7749"
+                                    value={manualLat}
+                                    onChange={(e) => setManualLat(e.target.value)}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">-90 to 90</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="longitude">Longitude</Label>
+                                  <Input
+                                    id="longitude"
+                                    type="number"
+                                    step="any"
+                                    placeholder="e.g., -122.4194"
+                                    value={manualLng}
+                                    onChange={(e) => setManualLng(e.target.value)}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">-180 to 180</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button 
+                                  onClick={handleManualCoordinates}
+                                  className="flex-1"
+                                >
+                                  Set Location
+                                </Button>
+                                <Button 
+                                  variant="outline"
+                                  onClick={() => setShowManualInput(false)}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                              
+                              {/* Helper Info */}
+                              <div className="bg-blue-100 border border-blue-200 rounded-lg p-3">
+                                <p className="text-sm text-blue-800">
+                                  <strong>💡 Hint:</strong> The San Francisco gift is at coordinates 37.7749, -122.4194
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-4">
@@ -339,13 +488,24 @@ function ClaimGiftContent() {
                               </p>
                             )}
                           </div>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={getCurrentLocation}
-                          >
-                            Refresh
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={getCurrentLocation}
+                            >
+                              <Navigation className="h-3 w-3 mr-1" />
+                              GPS
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setShowManualInput(true)}
+                            >
+                              <Edit3 className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                          </div>
                         </div>
 
                         {distance !== null && (
@@ -381,6 +541,67 @@ function ClaimGiftContent() {
                             </div>
                           </div>
                         )}
+
+                        {/* Manual Input Form - shown when user clicks Edit */}
+                        {showManualInput && (
+                          <Card className="mt-4 border-blue-200 bg-blue-50">
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-lg">Edit Coordinates</CardTitle>
+                              <CardDescription>
+                                Update your location coordinates
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div>
+                                  <Label htmlFor="latitude-edit">Latitude</Label>
+                                  <Input
+                                    id="latitude-edit"
+                                    type="number"
+                                    step="any"
+                                    placeholder="e.g., 37.7749"
+                                    value={manualLat || location.latitude?.toString() || ''}
+                                    onChange={(e) => setManualLat(e.target.value)}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">-90 to 90</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="longitude-edit">Longitude</Label>
+                                  <Input
+                                    id="longitude-edit"
+                                    type="number"
+                                    step="any"
+                                    placeholder="e.g., -122.4194"
+                                    value={manualLng || location.longitude?.toString() || ''}
+                                    onChange={(e) => setManualLng(e.target.value)}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">-180 to 180</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button 
+                                  onClick={handleManualCoordinates}
+                                  className="flex-1"
+                                >
+                                  Update Location
+                                </Button>
+                                <Button 
+                                  variant="outline"
+                                  onClick={() => setShowManualInput(false)}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                              
+                              {/* Helper Info */}
+                              <div className="bg-blue-100 border border-blue-200 rounded-lg p-3">
+                                <p className="text-sm text-blue-800">
+                                  <strong>💡 Hint:</strong> The San Francisco gift is at coordinates 37.7749, -122.4194
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
                       </div>
                     )}
 
@@ -410,7 +631,7 @@ function ClaimGiftContent() {
                         ) : canClaim ? (
                           <>
                             <Gift className="mr-2 h-4 w-4" />
-                            Claim {gift.amount} ETH
+                            Claim {gift.amount} {gift.currency}
                           </>
                         ) : (
                           <>

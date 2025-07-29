@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MainLayout } from '@/components/layout/main-layout';
+import { GiftCreatedModal } from '@/components/gift-created-modal';
 
 const createGiftSchema = z.object({
   recipientAddress: z.string().min(42, 'Invalid Ethereum address').max(42, 'Invalid Ethereum address'),
@@ -45,6 +46,7 @@ export default function CreateGiftPage() {
   const { address, isConnected } = useAccount();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [showGiftModal, setShowGiftModal] = useState(false);
   
   // Smart contract integration
   const { 
@@ -74,6 +76,13 @@ export default function CreateGiftPage() {
   });
 
   const watchedValues = watch();
+
+  // Show modal when gift is successfully created
+  useEffect(() => {
+    if (isTxSuccess && createdGiftId) {
+      setShowGiftModal(true);
+    }
+  }, [isTxSuccess, createdGiftId]);
 
   if (!isConnected) {
     return (
@@ -577,6 +586,15 @@ export default function CreateGiftPage() {
           </div>
         </div>
       </div>
+      
+      {/* Gift Creation Success Modal */}
+      <GiftCreatedModal
+        isOpen={showGiftModal}
+        onClose={() => setShowGiftModal(false)}
+        giftId={createdGiftId}
+        amount={watchedValues.amount || '0'}
+        recipientAddress={watchedValues.recipientAddress || ''}
+      />
     </MainLayout>
   );
 }

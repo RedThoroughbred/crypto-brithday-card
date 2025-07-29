@@ -287,18 +287,121 @@ contract LocationEscrow is ReentrancyGuard, Pausable, AccessControl {
         int256 lat2,
         int256 lon2
     ) internal pure returns (uint256 distance) {
-        // Convert to radians (approximation for gas efficiency)
-        int256 dLat = lat2 - lat1;
-        int256 dLon = lon2 - lon1;
-        
-        // Simplified distance calculation for small distances
-        // Uses linear approximation: distance ≈ sqrt(dLat² + dLon²) * scale
-        int256 latDiff = (dLat * 111_320) / int256(PRECISION_MULTIPLIER); // meters per degree latitude
-        int256 lonDiff = (dLon * 111_320) / int256(PRECISION_MULTIPLIER); // approximate meters per degree longitude
-        
-        // Calculate approximate distance
-        uint256 distanceSquared = uint256(latDiff * latDiff + lonDiff * lonDiff);
-        distance = _sqrt(distanceSquared);
+        // Earth's radius in meters
+        uint256 R = 6371000;
+
+        // Convert degrees to radians and scale by PRECISION_MULTIPLIER
+        // (lat/lon are already scaled by PRECISION_MULTIPLIER, so we need to convert them to radians)
+        // 1 degree = PI / 180 radians
+        // So, (lat_scaled / PRECISION_MULTIPLIER) * (PI / 180)
+        // We can approximate PI / 180 as 0.0174532925, scaled by PRECISION_MULTIPLIER
+        // PI_OVER_180_SCALED = 17453
+        uint256 PI_OVER_180_SCALED = 17453; // PI * PRECISION_MULTIPLIER / 180
+
+        int256 lat1Rad = (lat1 * int256(PI_OVER_180_SCALED)) / int256(PRECISION_MULTIPLIER);
+        int256 lat2Rad = (lat2 * int256(PI_OVER_180_SCALED)) / int256(PRECISION_MULTIPLIER);
+        int256 dLatRad = ((lat2 - lat1) * int256(PI_OVER_180_SCALED)) / int256(PRECISION_MULTIPLIER);
+        int256 dLonRad = ((lon2 - lon1) * int256(PI_OVER_180_SCALED)) / int256(PRECISION_MULTIPLIER);
+
+        // a = sin²(Δφ/2) + cos φ1 ⋅ cos φ2 ⋅ sin²(Δλ/2)
+        int256 sin_dLat_div_2 = _sin(dLatRad / 2);
+        int256 sin_dLon_div_2 = _sin(dLonRad / 2);
+        int256 cos_lat1 = _cos(lat1Rad);
+        int256 cos_lat2 = _cos(lat2Rad);
+
+        // All intermediate products need to be scaled correctly
+        // (sin_dLat_div_2 * sin_dLat_div_2) is (scaled * scaled) / scaled = scaled
+        int256 term1 = (sin_dLat_div_2 * sin_dLat_div_2) / int256(PRECISION_MULTIPLIER);
+        int256 term2_cos_product = (cos_lat1 * cos_lat2) / int256(PRECISION_MULTIPLIER);
+        int256 term2_sin_product = (sin_dLon_div_2 * sin_dLon_div_2) / int256(PRECISION_MULTIPLIER);
+        int256 term2 = (term2_cos_product * term2_sin_product) / int256(PRECISION_MULTIPLIER);
+
+        int256 a_scaled = term1 + term2;
+
+        // Clamp a_scaled to [0, PRECISION_MULTIPLIER]
+        if (a_scaled < 0) {
+            a_scaled = 0;
+        }
+        if (a_scaled > int256(PRECISION_MULTIPLIER)) {
+            a_scaled = int256(PRECISION_MULTIPLIER);
+        }
+
+        // c = 2 ⋅ atan2( √a, √(1−a) )
+        // _sqrt returns uint256, so we need to cast a_scaled to uint256
+        uint256 sqrt_a = _sqrt(uint256(a_scaled));
+        uint256 sqrt_1_minus_a = _sqrt(uint256(int256(PRECISION_MULTIPLIER) - a_scaled));
+
+        int256 c_scaled = 2 * _atan2(sqrt_a, sqrt_1_minus_a);
+
+        // d = R ⋅ c
+        // R is uint256, c_scaled is int256 (scaled by PRECISION_MULTIPLIER)
+        // (R * c_scaled) / PRECISION_MULTIPLIER
+        distance = uint256((R * uint256(c_scaled)) / PRECISION_MULTIPLIER);
+    }
+
+    // Helper functions need to be re-evaluated for scaling and accuracy.
+    // The current _sin, _cos, _atan2 are Taylor series approximations.
+    // These might be the source of inaccuracy.
+    // For better accuracy, we might need to use lookup tables or more iterations for Taylor series.
+    // However, for now, let's ensure the scaling is correct.
+
+    // Let's simplify the _sin and _cos to avoid repeated division by PRECISION_MULTIPLIER
+    // and ensure the return value is also scaled by PRECISION_MULTIPLIER.
+
+    function _sin(int256 x) internal pure returns (int256) {
+        // x is in radians * PRECISION_MULTIPLIER
+        // Taylor series: x - x^3/3! + x^5/5! - ...
+        // All terms need to be scaled by PRECISION_MULTIPLIER
+        // x^3 / 3! = (x * x * x) / (PRECISION_MULTIPLIER^2 * 6)
+        int256 x_scaled = x;
+        int256 x2_scaled = (x_scaled * x_scaled) / int256(PRECISION_MULTIPLIER);
+        int256 x3_scaled = (x2_scaled * x_scaled) / int256(PRECISION_MULTIPLIER);
+        int256 x5_scaled = (x3_scaled * x2_scaled) / int256(PRECISION_MULTIPLIER);
+
+        return x_scaled - (x3_scaled / 6) + (x5_scaled / 120);
+    }
+
+    function _cos(int256 x) internal pure returns (int256) {
+        // x is in radians * PRECISION_MULTIPLIER
+        // Taylor series: 1 - x^2/2! + x^4/4! - ...
+        // All terms need to be scaled by PRECISION_MULTIPLIER
+        int256 x_scaled = x;
+        int256 x2_scaled = (x_scaled * x_scaled) / int256(PRECISION_MULTIPLIER);
+        int256 x4_scaled = (x2_scaled * x2_scaled) / int256(PRECISION_MULTIPLIER);
+
+        return int256(PRECISION_MULTIPLIER) - (x2_scaled / 2) + (x4_scaled / 24);
+    }
+
+    function _atan2(uint256 y, uint256 x) internal pure returns (int256) {
+        // CORDIC algorithm approximation for atan2(y, x)
+        // y and x are scaled by PRECISION_MULTIPLIER
+        // Returns radians scaled by PRECISION_MULTIPLIER
+
+        if (x == 0) {
+            if (y > 0) return int256(1570796); // PI/2 * PRECISION_MULTIPLIER
+            if (y < 0) return int256(-1570796); // -PI/2 * PRECISION_MULTIPLIER
+            return 0;
+        }
+
+        // Ensure x is positive for the approximation
+        bool x_is_negative = x < 0;
+        if (x_is_negative) {
+            x = uint256(-int256(x));
+        }
+
+        int256 z = int256((y * PRECISION_MULTIPLIER) / x); // This z is scaled by PRECISION_MULTIPLIER
+        int256 z2 = (z * z) / int256(PRECISION_MULTIPLIER); // z^2 scaled by PRECISION_MULTIPLIER
+
+        int256 result = z - (z * z2) / (3 * int256(PRECISION_MULTIPLIER)) + (z * z2 * z2) / (5 * int256(PRECISION_MULTIPLIER * PRECISION_MULTIPLIER));
+
+        if (x_is_negative) {
+            if (y >= 0) {
+                result = int256(3141592) - result; // PI * PRECISION_MULTIPLIER - result
+            } else {
+                result = int256(-3141592) - result; // -PI * PRECISION_MULTIPLIER - result
+            }
+        }
+        return result;
     }
     
     /**
