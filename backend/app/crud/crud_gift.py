@@ -11,6 +11,25 @@ from app.schemas.gift import GiftCreate, GiftUpdate
 
 
 class CRUDGift(CRUDBase[Gift, GiftCreate, GiftUpdate]):
+    async def create(self, db: AsyncSession, *, obj_in: GiftCreate) -> Gift:
+        """Create gift with sender relationship loaded."""
+        gift = await super().create(db, obj_in=obj_in)
+        # Reload with relationships
+        result = await db.execute(
+            select(Gift)
+            .options(selectinload(Gift.sender))
+            .filter(Gift.id == gift.id)
+        )
+        return result.scalars().first()
+    
+    async def get(self, db: AsyncSession, id: any) -> Optional[Gift]:
+        """Get gift with sender relationship loaded."""
+        result = await db.execute(
+            select(Gift)
+            .options(selectinload(Gift.sender))
+            .filter(Gift.id == id)
+        )
+        return result.scalars().first()
     async def get_by_escrow_id(self, db: AsyncSession, *, escrow_id: str) -> Optional[Gift]:
         """Get gift by escrow ID."""
         result = await db.execute(

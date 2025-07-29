@@ -98,6 +98,32 @@ export interface ChainClaimResponse extends ChainClaimCreate {
   claimed_at: string;
 }
 
+// Gift API Types
+export interface GiftCreate {
+  recipient_address: string;
+  escrow_id: string;
+  lat: number;
+  lon: number;
+  message?: string;
+}
+
+export interface GiftResponse {
+  id: string;
+  sender: {
+    id: string;
+    wallet_address: string;
+    created_at: string;
+  };
+  recipient_address: string;
+  escrow_id: string;
+  lat: number;
+  lon: number;
+  message?: string;
+  status: 'PENDING' | 'CLAIMED' | 'EXPIRED';
+  created_at: string;
+  updated_at?: string;
+}
+
 // API Error Types
 export class APIError extends Error {
   constructor(
@@ -285,6 +311,46 @@ export const chainAPI = {
     if (options?.limit !== undefined) params.limit = options.limit.toString();
 
     return apiClient.get(`/chains/${chainId}/claims`, params);
+  },
+};
+
+// Gift API Functions
+export const giftAPI = {
+  // Authentication (shared with chainAPI)
+  setAuthToken: (token: string | null) => {
+    apiClient.setAuthToken(token);
+  },
+
+  // Create a new single gift
+  createGift: (giftData: GiftCreate): Promise<GiftResponse> => {
+    return apiClient.post('/gifts/', giftData);
+  },
+
+  // Get gift by database ID
+  getGift: (giftId: string): Promise<GiftResponse> => {
+    return apiClient.get(`/gifts/${giftId}`);
+  },
+
+  // Get gift by escrow ID (used for claiming)
+  getGiftByEscrowId: (escrowId: string): Promise<GiftResponse> => {
+    return apiClient.get(`/gifts/escrow/${escrowId}`);
+  },
+
+  // Get gifts for a specific user
+  getUserGifts: (userAddress: string, options?: {
+    skip?: number;
+    limit?: number;
+  }): Promise<GiftResponse[]> => {
+    const params: Record<string, string> = {};
+    if (options?.skip !== undefined) params.skip = options.skip.toString();
+    if (options?.limit !== undefined) params.limit = options.limit.toString();
+
+    return apiClient.get(`/gifts/user/${userAddress}`, params);
+  },
+
+  // Update gift status (for claiming)
+  updateGiftStatus: (giftId: string, status: 'PENDING' | 'CLAIMED' | 'EXPIRED'): Promise<GiftResponse> => {
+    return apiClient.put(`/gifts/${giftId}`, { status });
   },
 };
 

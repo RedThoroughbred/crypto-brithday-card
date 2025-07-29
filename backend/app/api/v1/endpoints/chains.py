@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.crud.crud_chain import crud_chain, crud_chain_claim
+from app.crud.crud_user import user
 from app.schemas.chain import (
     ChainCreate,
     ChainResponse,
@@ -33,16 +34,25 @@ async def create_chain(
     call this AFTER successfully creating the chain on the blockchain.
     """
     try:
+        # Get the user record
+        user_record = await user.get_by_wallet_address(db, wallet_address=current_user_address)
+        if not user_record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
         # Create the chain with steps
         chain = await crud_chain.create_chain_with_steps(
             db=db,
             chain_data=chain_data,
+            creator_id=user_record.id,
             giver_address=current_user_address
         )
         
         # Return the created chain with steps
         return ChainResponse(
-            id=chain.id,
+            id=str(chain.id),
             chain_title=chain.chain_title,
             chain_description=chain.chain_description,
             giver_address=chain.giver_address,
@@ -60,8 +70,8 @@ async def create_chain(
             completed_at=chain.completed_at,
             steps=[
                 {
-                    "id": step.id,
-                    "chain_id": step.chain_id,
+                    "id": str(step.id),
+                    "chain_id": str(step.chain_id),
                     "step_index": step.step_index,
                     "step_title": step.step_title,
                     "step_message": step.step_message,

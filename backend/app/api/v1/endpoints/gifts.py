@@ -7,8 +7,15 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from decimal import Decimal
 import structlog
+import uuid
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.database import get_db
+from app.api.routes.auth import get_current_user_from_token
+from app.crud import gift as gift_crud, user as user_crud
+from app.schemas.gift import GiftCreate, GiftRead, GiftUpdate
+from app.models.gift import GiftStatus
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -63,59 +70,115 @@ class GiftListResponse(BaseModel):
     per_page: int
 
 
-@router.post("", response_model=GiftResponse, status_code=status.HTTP_201_CREATED)
-async def create_gift(request: CreateGiftRequest):
-    """
-    Create a new location-verified crypto gift.
-    Deploys gift to smart contract and stores metadata.
-    """
-    # TODO: Validate recipient address format
-    # TODO: Check user authentication and balance
-    # TODO: Create smart contract transaction
-    # TODO: Store gift metadata in database
-    # TODO: Hash location clues for privacy
-    
-    logger.info(
-        "Creating new gift",
-        recipient=request.recipient_address,
-        amount=float(request.amount),
-        location=request.location.dict()
-    )
-    
-    # Placeholder response
-    return GiftResponse(
-        id=1,
-        giver_address="0x1234...",
-        recipient_address=request.recipient_address,
-        amount=request.amount,
-        status="created",
-        location=request.location,
-        clue_text=request.clue_text,
-        message=request.message,
-        created_at="2024-01-01T00:00:00Z",
-        expires_at="2024-01-02T00:00:00Z",
-        claimed_at=None,
-        claim_attempts=0,
-        transaction_hash="0xabc123..."
-    )
+class CreateGiftRequestV2(BaseModel):
+    """Request model for creating a new gift (aligned with frontend)."""
+    recipient_address: str = Field(..., description="Ethereum address of gift recipient")
+    escrow_id: str = Field(..., description="Smart contract escrow ID")
+    lat: float = Field(..., ge=-90, le=90, description="Latitude in decimal degrees")
+    lon: float = Field(..., ge=-180, le=180, description="Longitude in decimal degrees")
+    message: Optional[str] = Field(None, max_length=1000, description="Personal message to recipient")
 
 
-@router.get("/{gift_id}", response_model=GiftResponse)
-async def get_gift(gift_id: int):
+@router.post("", response_model=GiftRead, status_code=status.HTTP_201_CREATED)
+async def create_gift(
+    request: CreateGiftRequestV2,
+    db: AsyncSession = Depends(get_db),
+    current_user_address: str = Depends(get_current_user_from_token)
+):
     """
-    Get details of a specific gift.
+    Store a new single gift in the database after smart contract creation.
+    This is called by the frontend after successful blockchain transaction.
+    """
+    try:
+        # Get the current user
+        sender = await user_crud.get_by_wallet_address(db, wallet_address=current_user_address)
+        if not sender:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Create gift data
+        gift_data = GiftCreate(
+            sender_id=sender.id,
+            recipient_address=request.recipient_address,
+            escrow_id=request.escrow_id,
+            lat=request.lat,
+            lon=request.lon,
+            message=request.message
+        )
+        
+        # Store gift in database
+        gift = await gift_crud.create(db, obj_in=gift_data)
+        
+        logger.info(
+            "Single gift stored in database",
+            gift_id=str(gift.id),
+            sender=current_user_address,
+            recipient=request.recipient_address,
+            escrow_id=request.escrow_id
+        )
+        
+        return gift
+        
+    except Exception as e:
+        logger.error(
+            "Failed to create gift",
+            error=str(e),
+            sender=current_user_address,
+            recipient=request.recipient_address
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create gift"
+        )
+
+
+@router.get("/{gift_id}", response_model=GiftRead)
+async def get_gift(
+    gift_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get details of a specific gift by UUID.
     Returns public information only.
     """
-    # TODO: Fetch gift from database
-    # TODO: Check user permissions for sensitive data
-    # TODO: Return appropriate data based on user role
-    
-    logger.info("Fetching gift details", gift_id=gift_id)
-    
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Gift not found"
-    )
+    try:
+        # Parse UUID
+        gift_uuid = uuid.UUID(gift_id)
+        
+        # Fetch gift from database
+        gift = await gift_crud.get(db, gift_uuid)
+        
+        if not gift:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Gift not found"
+            )
+        
+        logger.info(
+            "Fetched gift details",
+            gift_id=gift_id,
+            status=gift.status
+        )
+        
+        return gift
+        
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid gift ID format"
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to fetch gift",
+            gift_id=gift_id,
+            error=str(e)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch gift"
+        )
 
 
 @router.post("/{gift_id}/claim", response_model=GiftResponse)
@@ -172,28 +235,91 @@ async def list_gifts(
     )
 
 
-@router.get("/user/{user_address}", response_model=GiftListResponse)
+@router.get("/escrow/{escrow_id}", response_model=GiftRead)
+async def get_gift_by_escrow_id(
+    escrow_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get gift details by escrow ID (used by frontend for gift claiming).
+    """
+    try:
+        gift = await gift_crud.get_by_escrow_id(db, escrow_id=escrow_id)
+        
+        if not gift:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Gift not found"
+            )
+        
+        logger.info(
+            "Fetched gift by escrow ID",
+            escrow_id=escrow_id,
+            gift_id=str(gift.id),
+            status=gift.status
+        )
+        
+        return gift
+        
+    except Exception as e:
+        logger.error(
+            "Failed to fetch gift by escrow ID",
+            escrow_id=escrow_id,
+            error=str(e)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch gift"
+        )
+
+
+@router.get("/user/{user_address}", response_model=List[GiftRead])
 async def get_user_gifts(
     user_address: str,
-    page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100)
+    db: AsyncSession = Depends(get_db),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100)
 ):
     """
     Get all gifts associated with a user address.
     Includes both sent and received gifts.
     """
-    # TODO: Validate user address format
-    # TODO: Check user permissions
-    # TODO: Query database for user's gifts
-    
-    logger.info("Fetching user gifts", user_address=user_address)
-    
-    return GiftListResponse(
-        gifts=[],
-        total=0,
-        page=page,
-        per_page=per_page
-    )
+    try:
+        # Get user
+        user = await user_crud.get_by_wallet_address(db, wallet_address=user_address)
+        if not user:
+            return []
+        
+        # Get gifts sent by this user
+        sent_gifts = await gift_crud.get_by_sender(db, sender_id=user.id, skip=skip, limit=limit)
+        
+        # Get gifts received by this user
+        received_gifts = await gift_crud.get_by_recipient(db, recipient_address=user_address, skip=skip, limit=limit)
+        
+        # Combine and deduplicate
+        all_gifts = sent_gifts + received_gifts
+        unique_gifts = {str(gift.id): gift for gift in all_gifts}.values()
+        
+        logger.info(
+            "Fetched user gifts",
+            user_address=user_address,
+            sent_count=len(sent_gifts),
+            received_count=len(received_gifts),
+            total=len(unique_gifts)
+        )
+        
+        return list(unique_gifts)
+        
+    except Exception as e:
+        logger.error(
+            "Failed to fetch user gifts",
+            user_address=user_address,
+            error=str(e)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch user gifts"
+        )
 
 
 @router.delete("/{gift_id}")

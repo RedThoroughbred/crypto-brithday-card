@@ -13,6 +13,8 @@ import {
   calculateExpiryTime
 } from '@/lib/contracts';
 import { GGT_TOKEN, ERC20_ABI } from '@/lib/tokens';
+import { giftAPI, GiftCreate } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface CreateGiftParams {
   recipientAddress: string;
@@ -44,14 +46,25 @@ export interface Gift {
 
 export function useLocationEscrow() {
   const { address } = useAccount();
+  const auth = useAuth();
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createdGiftId, setCreatedGiftId] = useState<number | null>(null);
+  const [currentGiftParams, setCurrentGiftParams] = useState<CreateGiftParams | null>(null);
+  const [giftCreationStep, setGiftCreationStep] = useState<'idle' | 'approving' | 'creating' | 'complete'>('idle');
 
-  // Write contract hook for creating gifts
-  const { writeContract, data: createTxHash } = useWriteContract();
+  // Approval transaction hook
+  const { writeContract: writeApproval, data: approvalTxHash } = useWriteContract();
+  
+  // Gift creation transaction hook  
+  const { writeContract: writeGiftCreation, data: createTxHash } = useWriteContract();
 
-  // Wait for transaction confirmation
+  // Wait for approval transaction confirmation
+  const { isLoading: isApprovalPending, isSuccess: isApprovalSuccess } = useWaitForTransactionReceipt({
+    hash: approvalTxHash,
+  });
+
+  // Wait for gift creation transaction confirmation
   const { isLoading: isTxPending, isSuccess: isTxSuccess, data: txReceipt } = useWaitForTransactionReceipt({
     hash: createTxHash,
   });
@@ -69,6 +82,7 @@ export function useLocationEscrow() {
     try {
       setIsCreating(true);
       setCreateError(null);
+      setCurrentGiftParams(params); // Store for backend integration
 
       // Convert parameters to contract format
       const contractLat = coordinateToContract(params.latitude);
@@ -78,7 +92,7 @@ export function useLocationEscrow() {
       const expiryTime = calculateExpiryTime(params.expiryDays);
 
       if (params.currency === 'GGT') {
-        // GGT Token Gift Flow - FIXED: Proper two-step process
+        // GGT Token Gift Flow - Proper two-step process
         console.log('Creating GGT token gift...');
         const giftAmount = parseUnits(params.amount, GGT_TOKEN.decimals);
 
@@ -87,44 +101,33 @@ export function useLocationEscrow() {
         console.log('Amount to approve:', giftAmount.toString());
         console.log('Escrow address:', GGT_ESCROW_ADDRESS);
         
-        const approvalTx = await writeContract({
-          address: GGT_TOKEN.address as `0x${string}`,
-          abi: ERC20_ABI,
-          functionName: 'approve',
-          args: [GGT_ESCROW_ADDRESS, giftAmount],
-        });
-        console.log('Approval transaction sent:', approvalTx);
-
-        // Wait for approval transaction to be mined
-        console.log('Waiting for approval confirmation...');
-        // The wagmi hook will handle the transaction waiting in the background
-        // For now, we'll add a delay to ensure the approval is processed
-        await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
-
-        // Step 2: Create the gift using the approved tokens
-        console.log('Step 2: Creating GGT gift...');
-        await writeContract({
-          address: GGT_ESCROW_ADDRESS,
-          abi: GGT_ESCROW_ABI,
-          functionName: 'createGift',
-          args: [
-            params.recipientAddress as `0x${string}`,
-            contractLat,
-            contractLon,
-            BigInt(params.radius),
-            clueHash,
-            expiryTime,
-            metadata,
-            giftAmount,
-          ],
-        });
+        setGiftCreationStep('approving');
+        
+        try {
+          await writeApproval({
+            address: GGT_TOKEN.address as `0x${string}`,
+            abi: ERC20_ABI,
+            functionName: 'approve',
+            args: [GGT_ESCROW_ADDRESS, giftAmount],
+          });
+          
+          console.log('Approval transaction triggered, waiting for confirmation...');
+        } catch (approvalError: any) {
+          console.error('Approval transaction failed:', approvalError);
+          setCreateError(`Approval failed: ${approvalError.message}`);
+          setIsCreating(false);
+          setGiftCreationStep('idle');
+          return;
+        }
+        
+        // The gift creation will be handled in the useEffect when approval completes
 
       } else {
         // ETH Gift Flow (existing)
         console.log('Creating ETH gift...');
         const giftAmount = parseEther(params.amount);
 
-        await writeContract({
+        await writeGiftCreation({
           address: LOCATION_ESCROW_ADDRESS,
           abi: LOCATION_ESCROW_ABI,
           functionName: 'createGift',
@@ -160,7 +163,7 @@ export function useLocationEscrow() {
 
     console.log('Claiming gift:', { giftId, latitude, longitude, isGGT });
 
-    await writeContract({
+    await writeGiftCreation({
       address: isGGT ? GGT_ESCROW_ADDRESS : LOCATION_ESCROW_ADDRESS,
       abi: isGGT ? GGT_ESCROW_ABI : LOCATION_ESCROW_ABI,
       functionName: 'claimGift',
@@ -178,44 +181,121 @@ export function useLocationEscrow() {
     });
   };
 
-  // Parse gift ID from transaction receipt when transaction is successful
+  // Handle GGT approval completion and proceed to gift creation
   useEffect(() => {
-    if (isTxSuccess && txReceipt && isCreating && !createdGiftId) {
-      try {
-        // Look for GiftCreated event in the logs
-        const giftCreatedLog = txReceipt.logs.find(log => {
-          // Check if this log matches the GiftCreated event signature
-          // GiftCreated event has topic0 that we can identify
-          return log.topics.length >= 4; // GiftCreated has 4 indexed parameters
-        });
+    if (isApprovalSuccess && giftCreationStep === 'approving' && currentGiftParams) {
+      const proceedWithGiftCreation = async () => {
+        try {
+          console.log('Step 2: Approval confirmed, creating GGT gift...');
+          setGiftCreationStep('creating');
+          
+          const contractLat = coordinateToContract(currentGiftParams.latitude);
+          const contractLon = coordinateToContract(currentGiftParams.longitude);
+          const clueHash = createClueHash(currentGiftParams.clue);
+          const metadata = createMetadataHash(currentGiftParams.message);
+          const expiryTime = calculateExpiryTime(currentGiftParams.expiryDays);
+          const giftAmount = parseUnits(currentGiftParams.amount, GGT_TOKEN.decimals);
 
-        if (giftCreatedLog && giftCreatedLog.topics[1]) {
-          // The gift ID is in the first indexed parameter (topics[1])
-          const giftIdHex = giftCreatedLog.topics[1];
-          const giftId = parseInt(giftIdHex, 16);
-          console.log('Parsed gift ID from receipt:', giftId);
-          setCreatedGiftId(giftId);
+          await writeGiftCreation({
+            address: GGT_ESCROW_ADDRESS,
+            abi: GGT_ESCROW_ABI,
+            functionName: 'createGift',
+            args: [
+              currentGiftParams.recipientAddress as `0x${string}`,
+              contractLat,
+              contractLon,
+              BigInt(currentGiftParams.radius),
+              clueHash,
+              expiryTime,
+              metadata,
+              giftAmount,
+            ],
+          });
+          
+          console.log('Gift creation transaction sent');
+        } catch (error: any) {
+          console.error('Error in step 2 (gift creation):', error);
+          setCreateError(error.message || 'Failed to create gift after approval');
           setIsCreating(false);
-        } else {
-          console.warn('Could not find GiftCreated event in receipt, using fallback');
+          setGiftCreationStep('idle');
+        }
+      };
+
+      proceedWithGiftCreation();
+    }
+  }, [isApprovalSuccess, giftCreationStep, currentGiftParams, writeGiftCreation]);
+
+  // Parse gift ID from transaction receipt and store in backend when transaction is successful
+  useEffect(() => {
+    if (isTxSuccess && txReceipt && isCreating && !createdGiftId && currentGiftParams) {
+      const storeGiftInBackend = async () => {
+        try {
+          // Look for GiftCreated event in the logs
+          const giftCreatedLog = txReceipt.logs.find(log => {
+            // Check if this log matches the GiftCreated event signature
+            // GiftCreated event has topic0 that we can identify
+            return log.topics.length >= 4; // GiftCreated has 4 indexed parameters
+          });
+
+          let giftId: number;
+          if (giftCreatedLog && giftCreatedLog.topics[1]) {
+            // The gift ID is in the first indexed parameter (topics[1])
+            const giftIdHex = giftCreatedLog.topics[1];
+            giftId = parseInt(giftIdHex, 16);
+            console.log('Parsed gift ID from receipt:', giftId);
+          } else {
+            console.warn('Could not find GiftCreated event in receipt, using fallback');
+            giftId = Date.now(); // Fallback
+          }
+
+          setCreatedGiftId(giftId);
+
+          // Try to authenticate and store in backend
+          try {
+            const isAuthenticated = await auth.ensureAuthenticated();
+            if (isAuthenticated) {
+              const giftData: GiftCreate = {
+                recipient_address: currentGiftParams.recipientAddress,
+                escrow_id: giftId.toString(),
+                lat: currentGiftParams.latitude,
+                lon: currentGiftParams.longitude,
+                message: currentGiftParams.message,
+              };
+
+              await giftAPI.createGift(giftData);
+              console.log('Single gift stored in backend successfully');
+            } else {
+              console.warn('Authentication failed, gift not stored in backend');
+            }
+          } catch (backendError) {
+            console.warn('Failed to store gift in backend:', backendError);
+            // Don't fail the entire flow if backend storage fails
+          }
+
+          setIsCreating(false);
+          setCurrentGiftParams(null); // Clear stored params
+          setGiftCreationStep('complete');
+        } catch (error) {
+          console.error('Error processing gift creation:', error);
           setCreatedGiftId(Date.now()); // Fallback
           setIsCreating(false);
+          setCurrentGiftParams(null);
+          setGiftCreationStep('complete');
         }
-      } catch (error) {
-        console.error('Error parsing gift ID from receipt:', error);
-        setCreatedGiftId(Date.now()); // Fallback
-        setIsCreating(false);
-      }
+      };
+
+      storeGiftInBackend();
     }
-  }, [isTxSuccess, txReceipt, isCreating, createdGiftId]);
+  }, [isTxSuccess, txReceipt, isCreating, createdGiftId, currentGiftParams, auth]);
 
   return {
     // State
-    isCreating: isCreating || isTxPending,
+    isCreating: isCreating || isApprovalPending || isTxPending,
     createError,
     createdGiftId,
     createTxHash,
     isTxSuccess,
+    giftCreationStep,
     
     // Functions
     createGift,
@@ -226,6 +306,8 @@ export function useLocationEscrow() {
     resetCreateState: () => {
       setCreateError(null);
       setCreatedGiftId(null);
+      setCurrentGiftParams(null);
+      setGiftCreationStep('idle');
     },
   };
 }

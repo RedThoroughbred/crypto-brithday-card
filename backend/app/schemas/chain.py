@@ -28,21 +28,23 @@ class ChainStepCreate(BaseModel):
     radius: int = Field(default=50, ge=1, le=10000, description="Radius in meters for GPS unlock")
     step_value: str = Field(..., description="GGT value for this step (as string to avoid precision loss)")
 
-    @validator('unlock_data')
-    def validate_unlock_data(cls, v, values):
-        """Validate unlock_data based on unlock_type"""
+    @validator('step_value')
+    def validate_step_data(cls, v, values):
+        """Validate step data based on unlock_type (runs after all fields are processed)"""
         unlock_type = values.get('unlock_type')
+        unlock_data = values.get('unlock_data')
+        
         if unlock_type == UnlockType.GPS:
             # GPS steps require latitude and longitude
             if not values.get('latitude') or not values.get('longitude'):
                 raise ValueError("GPS unlock type requires latitude and longitude")
         elif unlock_type == UnlockType.PASSWORD:
             # Password steps require password in unlock_data
-            if not v or not v.get('password'):
+            if not unlock_data or not unlock_data.get('password'):
                 raise ValueError("Password unlock type requires password in unlock_data")
         elif unlock_type == UnlockType.QUIZ:
             # Quiz steps require question and answer
-            if not v or not v.get('question') or not v.get('answer'):
+            if not unlock_data or not unlock_data.get('question') or not unlock_data.get('answer'):
                 raise ValueError("Quiz unlock type requires question and answer in unlock_data")
         return v
 
@@ -77,8 +79,8 @@ class ChainCreate(BaseModel):
 
 class ChainStepResponse(BaseModel):
     """Schema for chain step responses"""
-    id: int
-    chain_id: int
+    id: str  # UUID
+    chain_id: str  # UUID
     step_index: int
     step_title: str
     step_message: str
@@ -97,7 +99,7 @@ class ChainStepResponse(BaseModel):
 
 class ChainResponse(BaseModel):
     """Schema for chain responses"""
-    id: int
+    id: str  # UUID
     chain_title: str
     chain_description: Optional[str]
     giver_address: str

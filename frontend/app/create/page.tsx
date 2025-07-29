@@ -27,7 +27,7 @@ const createGiftSchema = z.object({
   amount: z.string().min(1, 'Amount is required'),
   currency: z.enum(['ETH', 'GGT']).default('ETH'),
   message: z.string().min(1, 'Message is required').max(500, 'Message too long'),
-  clue: z.string().min(1, 'Clue is required').max(200, 'Clue too long'),
+  clue: z.string().max(200, 'Clue too long').optional(),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   radius: z.number().min(1).max(1000),
@@ -64,7 +64,8 @@ export default function CreateGiftPage() {
     handleSubmit,
     watch,
     setValue,
-    formState: { errors, isValid },
+    trigger,
+    formState: { errors, isValid, isValidating },
   } = useForm<CreateGiftForm>({
     resolver: zodResolver(createGiftSchema),
     defaultValues: {
@@ -76,6 +77,25 @@ export default function CreateGiftPage() {
   });
 
   const watchedValues = watch();
+  
+  // Update form values when location is selected
+  useEffect(() => {
+    if (selectedLocation) {
+      setValue('latitude', selectedLocation.lat);
+      setValue('longitude', selectedLocation.lng);
+      // Trigger validation after setting coordinates
+      trigger();
+    }
+  }, [selectedLocation, setValue, trigger]);
+  
+  // Debug form state
+  console.log('=== FORM STATE DEBUG ===');
+  console.log('watchedValues:', JSON.stringify(watchedValues, null, 2));
+  console.log('errors:', errors);
+  console.log('isValid:', isValid);
+  console.log('isValidating:', isValidating);
+  console.log('selectedLocation:', selectedLocation);
+  console.log('currentStep:', currentStep);
 
   // Show modal when gift is successfully created
   useEffect(() => {
@@ -108,6 +128,13 @@ export default function CreateGiftPage() {
   };
 
   const onSubmit = async (data: CreateGiftForm) => {
+    console.log('=== FORM SUBMITTED ===');
+    console.log('Form data:', data);
+    console.log('Selected location:', selectedLocation);
+    console.log('Is valid:', isValid);
+    console.log('Is creating:', isCreating);
+    console.log('Is tx success:', isTxSuccess);
+    
     if (!selectedLocation) {
       console.error('No location selected');
       return;
@@ -123,7 +150,7 @@ export default function CreateGiftPage() {
         latitude: selectedLocation.lat,
         longitude: selectedLocation.lng,
         radius: data.radius,
-        clue: data.clue,
+        clue: data.clue || '',
         message: data.message,
         expiryDays: data.expiryDays,
       });
@@ -562,6 +589,14 @@ export default function CreateGiftPage() {
                   <Button 
                     type="submit" 
                     disabled={!isValid || !selectedLocation || isCreating || isTxSuccess}
+                    onClick={() => {
+                      console.log('=== BUTTON CLICKED ===');
+                      console.log('isValid:', isValid);
+                      console.log('selectedLocation:', selectedLocation);
+                      console.log('isCreating:', isCreating);
+                      console.log('isTxSuccess:', isTxSuccess);
+                      console.log('Button disabled:', !isValid || !selectedLocation || isCreating || isTxSuccess);
+                    }}
                   >
                     {isCreating ? (
                       <>

@@ -67,9 +67,12 @@ export function useAuth() {
 
       // Step 2: Sign the challenge message
       console.log('Signing challenge message...');
-      const signature = await signMessageAsync({
+      const rawSignature = await signMessageAsync({
         message: challengeData.message,
       });
+      
+      // Ensure signature has 0x prefix (backend validation requires it)
+      const signature = rawSignature.startsWith('0x') ? rawSignature : `0x${rawSignature}`;
 
       console.log('Message signed:', signature);
 

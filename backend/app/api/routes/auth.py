@@ -301,12 +301,12 @@ async def _ensure_user_exists(db: AsyncSession, wallet_address: str):
     """
     try:
         # Check if user already exists
-        existing_user = await user_crud.user.get_by_wallet_address(db, wallet_address)
+        existing_user = await user_crud.get_by_wallet_address(db, wallet_address=wallet_address)
         
         if not existing_user:
             # Create new user
             user_data = UserCreate(wallet_address=wallet_address)
-            await user_crud.user.create(db, obj_in=user_data)
+            await user_crud.create(db, obj_in=user_data)
             
             logger.info(
                 "Created new user account",

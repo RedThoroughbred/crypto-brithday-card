@@ -3,6 +3,7 @@ import uuid
 
 from sqlalchemy import (
     Column,
+    DateTime,
     Enum as SAEnum,
     Float,
     ForeignKey,
@@ -36,8 +37,8 @@ class ChainStep(Base):
     chain_id = Column(UUID(as_uuid=True), ForeignKey("gift_chains.id"), nullable=False)
     step_index = Column(Integer, nullable=False)  # 0-based index
     
-    title = Column(String, nullable=False)
-    message = Column(Text, nullable=True)
+    step_title = Column(String, nullable=False)
+    step_message = Column(Text, nullable=True)
     unlock_type = Column(SAEnum(UnlockType), nullable=False)
     
     # GPS fields (only used for GPS type)
@@ -54,15 +55,19 @@ class ChainStep(Base):
     # Video/Image: {"url": "https://...", "type": "youtube"}
     # URL: {"target": "https://...", "instruction": "text"}
     
-    # Clue hash stored on blockchain
-    clue_hash = Column(String, nullable=False)
+    # Clue hash stored on blockchain (optional for backend storage)
+    clue_hash = Column(String, nullable=True, default="")
     
     # Reward
-    reward_amount = Column(String, nullable=False)  # GGT amount as string
+    step_value = Column(String, nullable=False)  # GGT amount as string (API compatibility)
     
     # Status
     is_completed = Column(Boolean, default=False)
     is_unlocked = Column(Boolean, default=False)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationship
     chain = relationship("GiftChain", back_populates="steps")

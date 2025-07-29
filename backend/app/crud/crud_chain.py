@@ -21,7 +21,8 @@ class CRUDChain(CRUDBase[GiftChain, ChainCreate, dict]):
         db: AsyncSession, 
         *,
         chain_data: ChainCreate,
-        giver_address: str
+        creator_id: str,  # UUID of the creator user
+        giver_address: str  # Wallet address of the creator
     ) -> GiftChain:
         """Create a gift chain with its steps"""
         
@@ -30,9 +31,11 @@ class CRUDChain(CRUDBase[GiftChain, ChainCreate, dict]):
         
         # Create the chain
         chain = GiftChain(
+            chain_id=str(chain_data.blockchain_chain_id) if chain_data.blockchain_chain_id else "temp",
+            creator_id=creator_id,
+            giver_address=giver_address.lower(),
             chain_title=chain_data.chain_title,
             chain_description=chain_data.chain_description,
-            giver_address=giver_address.lower(),
             recipient_address=chain_data.recipient_address.lower(),
             recipient_email=chain_data.recipient_email,
             total_value=chain_data.total_value,
@@ -41,8 +44,10 @@ class CRUDChain(CRUDBase[GiftChain, ChainCreate, dict]):
             is_completed=False,
             is_expired=False,
             expiry_date=expiry_date,
+            expires_at=expiry_date,  # Same as expiry_date for now
             blockchain_chain_id=chain_data.blockchain_chain_id,
-            transaction_hash=chain_data.transaction_hash
+            transaction_hash=chain_data.transaction_hash,
+            creation_tx_hash=chain_data.transaction_hash or "temp"
         )
         
         db.add(chain)
@@ -66,8 +71,14 @@ class CRUDChain(CRUDBase[GiftChain, ChainCreate, dict]):
             db.add(step)
         
         await db.commit()
-        await db.refresh(chain)
-        return chain
+        
+        # Reload chain with steps eagerly loaded
+        result = await db.execute(
+            select(GiftChain)
+            .options(selectinload(GiftChain.steps))
+            .filter(GiftChain.id == chain.id)
+        )
+        return result.scalars().first()
     
     async def get_chain_with_steps(self, db: AsyncSession, chain_id: int) -> Optional[GiftChain]:
         """Get a chain with all its steps loaded"""

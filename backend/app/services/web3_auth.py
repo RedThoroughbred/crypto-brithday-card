@@ -151,14 +151,22 @@ class Web3AuthService:
         # Create challenge message
         message = self._create_challenge_message(wallet_address, nonce)
         
-        # Store nonce in Redis with expiration (5 minutes)
+        # Store nonce and original message in Redis with expiration (5 minutes)
         redis_client = await self._get_redis()
         nonce_key = f"auth_nonce:{wallet_address}:{nonce}"
+        message_key = f"auth_message:{wallet_address}:{nonce}"
         
         await redis_client.setex(
             nonce_key,
             300,  # 5 minutes expiration
             "1"   # Simple flag value
+        )
+        
+        # Store the original message so we can recreate it exactly
+        await redis_client.setex(
+            message_key,
+            300,  # 5 minutes expiration
+            message
         )
         
         # Track challenge generation for rate limiting
@@ -238,8 +246,8 @@ class Web3AuthService:
             # Verify nonce exists and hasn't expired
             await self._verify_nonce(wallet_address, nonce)
             
-            # Recreate the challenge message
-            message = self._create_challenge_message(wallet_address, nonce)
+            # Retrieve the original challenge message
+            message = await self._get_original_message(wallet_address, nonce)
             
             # Encode message using EIP-191 standard
             encoded_message = encode_defunct(text=message)
@@ -314,11 +322,47 @@ class Web3AuthService:
                 detail="Invalid or expired nonce. Please request a new challenge."
             )
     
+    async def _get_original_message(self, wallet_address: str, nonce: str) -> str:
+        """
+        Retrieve the original challenge message from Redis.
+        
+        Args:
+            wallet_address: User's wallet address
+            nonce: Nonce from the challenge
+            
+        Returns:
+            Original challenge message
+            
+        Raises:
+            HTTPException: If message not found or expired
+        """
+        redis_client = await self._get_redis()
+        message_key = f"auth_message:{wallet_address}:{nonce}"
+        
+        original_message = await redis_client.get(message_key)
+        
+        if not original_message:
+            logger.warning(
+                "Original challenge message not found or expired",
+                wallet_address=wallet_address,
+                nonce=nonce[:8] + "..."
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Challenge message expired. Please request a new challenge."
+            )
+        
+        return original_message
+    
     async def _cleanup_nonce(self, wallet_address: str, nonce: str):
-        """Clean up used nonce from Redis."""
+        """Clean up used nonce and message from Redis."""
         redis_client = await self._get_redis()
         nonce_key = f"auth_nonce:{wallet_address}:{nonce}"
+        message_key = f"auth_message:{wallet_address}:{nonce}"
+        
+        # Clean up both nonce and message
         await redis_client.delete(nonce_key)
+        await redis_client.delete(message_key)
     
     async def get_wallet_info(self, wallet_address: str) -> Dict[str, Any]:
         """
