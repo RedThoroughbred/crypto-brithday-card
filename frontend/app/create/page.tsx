@@ -13,7 +13,13 @@ import {
   DollarSign,
   Calendar,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  Video,
+  Image,
+  FileText,
+  HelpCircle,
+  Lock,
+  Link
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,10 +34,14 @@ const createGiftSchema = z.object({
   currency: z.enum(['ETH', 'GGT']).default('ETH'),
   message: z.string().min(1, 'Message is required').max(500, 'Message too long'),
   clue: z.string().max(200, 'Clue too long').optional(),
-  latitude: z.number().min(-90).max(90),
-  longitude: z.number().min(-180).max(180),
-  radius: z.number().min(1).max(1000),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  radius: z.number().min(1).max(1000).optional(),
   expiryDays: z.number().min(1).max(365),
+  unlockType: z.enum(['GPS', 'VIDEO', 'IMAGE', 'MARKDOWN', 'QUIZ', 'PASSWORD', 'URL']).default('GPS'),
+  unlockChallengeData: z.string().max(5000, 'Challenge data too long').optional(),
+  rewardContent: z.string().max(2000, 'Reward content too long').optional(),
+  rewardContentType: z.enum(['url', 'file', 'message', 'none']).optional(),
 });
 
 type CreateGiftForm = z.infer<typeof createGiftSchema>;
@@ -72,6 +82,7 @@ export default function CreateGiftPage() {
       radius: 50,
       expiryDays: 30,
       currency: 'GGT', // Default to GGT since you have 1M tokens!
+      unlockType: 'GPS',
     },
     mode: 'onChange',
   });
@@ -135,8 +146,9 @@ export default function CreateGiftPage() {
     console.log('Is creating:', isCreating);
     console.log('Is tx success:', isTxSuccess);
     
-    if (!selectedLocation) {
-      console.error('No location selected');
+    // Only require location for GPS unlock type
+    if (data.unlockType === 'GPS' && !selectedLocation) {
+      console.error('No location selected for GPS gift');
       return;
     }
 
@@ -147,12 +159,16 @@ export default function CreateGiftPage() {
         recipientAddress: data.recipientAddress,
         amount: data.amount,
         currency: data.currency,
-        latitude: selectedLocation.lat,
-        longitude: selectedLocation.lng,
-        radius: data.radius,
+        latitude: data.unlockType === 'GPS' ? selectedLocation!.lat : 0,
+        longitude: data.unlockType === 'GPS' ? selectedLocation!.lng : 0,
+        radius: data.unlockType === 'GPS' ? data.radius! : 50,
         clue: data.clue || '',
         message: data.message,
         expiryDays: data.expiryDays,
+        unlockType: data.unlockType,
+        unlockChallengeData: data.unlockChallengeData,
+        rewardContent: data.rewardContentType === 'none' ? undefined : data.rewardContent,
+        rewardContentType: data.rewardContentType === 'none' ? undefined : data.rewardContentType,
       });
     } catch (error) {
       console.error('Failed to create gift:', error);
@@ -324,6 +340,202 @@ export default function CreateGiftPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Unlock Mechanism
+                      </label>
+                      <Select
+                        value={watchedValues.unlockType}
+                        onValueChange={(value) => setValue('unlockType', value as any)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="GPS">
+                            <div className="flex items-center">
+                              <MapPin className="mr-2 h-4 w-4" />
+                              📍 GPS Location
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="PASSWORD">
+                            <div className="flex items-center">
+                              <Lock className="mr-2 h-4 w-4" />
+                              🔐 Password
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="QUIZ">
+                            <div className="flex items-center">
+                              <HelpCircle className="mr-2 h-4 w-4" />
+                              ❓ Quiz Question
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="VIDEO">
+                            <div className="flex items-center">
+                              <Video className="mr-2 h-4 w-4" />
+                              🎥 Watch Video
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="IMAGE">
+                            <div className="flex items-center">
+                              <Image className="mr-2 h-4 w-4" />
+                              🖼️ View Image
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="MARKDOWN">
+                            <div className="flex items-center">
+                              <FileText className="mr-2 h-4 w-4" />
+                              📄 Read Content
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="URL">
+                            <div className="flex items-center">
+                              <Link className="mr-2 h-4 w-4" />
+                              🔗 Visit Website
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {watchedValues.unlockType === 'GPS' && 'Recipient must visit a specific location to claim'}
+                        {watchedValues.unlockType === 'PASSWORD' && 'Recipient must enter the correct password to claim'}
+                        {watchedValues.unlockType === 'QUIZ' && 'Recipient must answer a question correctly to claim'}
+                        {watchedValues.unlockType === 'VIDEO' && 'Recipient must watch a video to claim'}
+                        {watchedValues.unlockType === 'IMAGE' && 'Recipient must view an image to claim'}
+                        {watchedValues.unlockType === 'MARKDOWN' && 'Recipient must read content to claim'}
+                        {watchedValues.unlockType === 'URL' && 'Recipient must visit a website to claim'}
+                      </p>
+                    </div>
+
+                    {/* Unlock Challenge Data Fields */}
+                    {watchedValues.unlockType === 'PASSWORD' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Password
+                        </label>
+                        <Input
+                          {...register('unlockChallengeData')}
+                          type="password"
+                          placeholder="Enter the password recipients need to enter"
+                          className={errors.unlockChallengeData ? 'border-red-500' : ''}
+                        />
+                        {errors.unlockChallengeData && (
+                          <p className="mt-1 text-sm text-red-600">
+                            {errors.unlockChallengeData.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {watchedValues.unlockType === 'QUIZ' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Quiz Question & Answer
+                        </label>
+                        <textarea
+                          {...register('unlockChallengeData')}
+                          rows={3}
+                          placeholder='Enter question and answer in format: "Question: What is 2+2? | Answer: 4"'
+                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-geogift-500 focus:outline-none focus:ring-1 focus:ring-geogift-500"
+                        />
+                        {errors.unlockChallengeData && (
+                          <p className="mt-1 text-sm text-red-600">
+                            {errors.unlockChallengeData.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {(watchedValues.unlockType === 'VIDEO' || watchedValues.unlockType === 'IMAGE' || watchedValues.unlockType === 'URL') && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {watchedValues.unlockType === 'VIDEO' ? 'Video URL' : 
+                           watchedValues.unlockType === 'IMAGE' ? 'Image URL' : 'Website URL'}
+                        </label>
+                        <Input
+                          {...register('unlockChallengeData')}
+                          type="url"
+                          placeholder="https://example.com/video or https://example.com/image or https://example.com"
+                          className={errors.unlockChallengeData ? 'border-red-500' : ''}
+                        />
+                        {errors.unlockChallengeData && (
+                          <p className="mt-1 text-sm text-red-600">
+                            {errors.unlockChallengeData.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {watchedValues.unlockType === 'MARKDOWN' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Content to Read
+                        </label>
+                        <textarea
+                          {...register('unlockChallengeData')}
+                          rows={4}
+                          placeholder="Enter the content recipients need to read..."
+                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-geogift-500 focus:outline-none focus:ring-1 focus:ring-geogift-500"
+                        />
+                        {errors.unlockChallengeData && (
+                          <p className="mt-1 text-sm text-red-600">
+                            {errors.unlockChallengeData.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Optional Reward Content */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Bonus Reward (Optional)
+                      </label>
+                      <p className="text-xs text-gray-500 mb-2">
+                        Additional content to reveal AFTER successful unlock (along with the crypto)
+                      </p>
+                      <div className="space-y-2">
+                        <Select
+                          value={watchedValues.rewardContentType || 'none'}
+                          onValueChange={(value) => setValue('rewardContentType', value === 'none' ? undefined : value as any)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select reward type (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No additional reward</SelectItem>
+                            <SelectItem value="url">🔗 Website/Link</SelectItem>
+                            <SelectItem value="file">📎 File/Download</SelectItem>
+                            <SelectItem value="message">💬 Secret Message</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        
+                        {watchedValues.rewardContentType && watchedValues.rewardContentType !== 'none' && (
+                          <div>
+                            {watchedValues.rewardContentType === 'message' ? (
+                              <textarea
+                                {...register('rewardContent')}
+                                rows={3}
+                                placeholder="Enter the secret message to reveal after unlock..."
+                                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-geogift-500 focus:outline-none focus:ring-1 focus:ring-geogift-500"
+                              />
+                            ) : (
+                              <Input
+                                {...register('rewardContent')}
+                                type="url"
+                                placeholder={watchedValues.rewardContentType === 'url' ? 'https://example.com' : 'https://example.com/file.pdf'}
+                                className={errors.rewardContent ? 'border-red-500' : ''}
+                              />
+                            )}
+                            {errors.rewardContent && (
+                              <p className="mt-1 text-sm text-red-600">
+                                {errors.rewardContent.message}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Expiry (Days)
                       </label>
                       <Input
@@ -343,103 +555,136 @@ export default function CreateGiftPage() {
                 </Card>
               )}
 
-              {/* Step 2: Location & Clues */}
+              {/* Step 2: Location & Clues (only for GPS) */}
               {currentStep === 2 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
                       <MapPin className="mr-2 h-5 w-5" />
-                      Location & Clues
+                      {watchedValues.unlockType === 'GPS' ? 'Location & Clues' : 'Gift Setup Complete'}
                     </CardTitle>
                     <CardDescription>
-                      Set the treasure location and create hints for the recipient.
+                      {watchedValues.unlockType === 'GPS' 
+                        ? 'Set the treasure location and create hints for the recipient.'
+                        : 'Your gift challenge is configured. Review and create your gift.'
+                      }
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Treasure Hunt Clue
-                      </label>
-                      <textarea
-                        {...register('clue')}
-                        rows={3}
-                        placeholder="Create a riddle or hint to guide the recipient to the location..."
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-geogift-500 focus:outline-none focus:ring-1 focus:ring-geogift-500"
-                      />
-                      {errors.clue && (
-                        <p className="mt-1 text-sm text-red-600">
-                          {errors.clue.message}
-                        </p>
-                      )}
-                    </div>
+                    {watchedValues.unlockType === 'GPS' ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Treasure Hunt Clue
+                          </label>
+                          <textarea
+                            {...register('clue')}
+                            rows={3}
+                            placeholder="Create a riddle or hint to guide the recipient to the location..."
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-geogift-500 focus:outline-none focus:ring-1 focus:ring-geogift-500"
+                          />
+                          {errors.clue && (
+                            <p className="mt-1 text-sm text-red-600">
+                              {errors.clue.message}
+                            </p>
+                          )}
+                        </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Location Selection
-                      </label>
-                      <div className="bg-gray-100 rounded-lg p-8 text-center">
-                        <MapPin className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                        <p className="text-gray-600 mb-4">
-                          Interactive map component will be placed here
-                        </p>
-                        {selectedLocation && (
-                          <p className="text-sm text-geogift-600">
-                            Selected: {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Location Selection
+                          </label>
+                          <div className="bg-gray-100 rounded-lg p-8 text-center">
+                            <MapPin className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                            <p className="text-gray-600 mb-4">
+                              Interactive map component will be placed here
+                            </p>
+                            {selectedLocation && (
+                              <p className="text-sm text-geogift-600">
+                                Selected: {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
+                              </p>
+                            )}
+                            <div className="space-y-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  navigator.geolocation.getCurrentPosition(
+                                    (position) => {
+                                      const lat = position.coords.latitude;
+                                      const lng = position.coords.longitude;
+                                      handleLocationSelect(lat, lng);
+                                    },
+                                    (error) => {
+                                      console.error('Error getting location:', error);
+                                      alert('Unable to get your location. Please enable location services.');
+                                    }
+                                  );
+                                }}
+                                className="mt-4 w-full"
+                              >
+                                📍 Use My Current Location
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => handleLocationSelect(40.7831, -73.9712)}
+                                className="w-full"
+                              >
+                                Select Central Park (Demo)
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Claim Radius (meters)
+                          </label>
+                          <Input
+                            {...register('radius', { valueAsNumber: true })}
+                            type="number"
+                            min="1"
+                            max="1000"
+                            className={errors.radius ? 'border-red-500' : ''}
+                          />
+                          <p className="mt-1 text-xs text-gray-500">
+                            Recipients must be within this distance to claim the gift
                           </p>
-                        )}
-                        <div className="space-y-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              navigator.geolocation.getCurrentPosition(
-                                (position) => {
-                                  const lat = position.coords.latitude;
-                                  const lng = position.coords.longitude;
-                                  handleLocationSelect(lat, lng);
-                                },
-                                (error) => {
-                                  console.error('Error getting location:', error);
-                                  alert('Unable to get your location. Please enable location services.');
-                                }
-                              );
-                            }}
-                            className="mt-4 w-full"
-                          >
-                            📍 Use My Current Location
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => handleLocationSelect(40.7831, -73.9712)}
-                            className="w-full"
-                          >
-                            Select Central Park (Demo)
-                          </Button>
+                          {errors.radius && (
+                            <p className="mt-1 text-sm text-red-600">
+                              {errors.radius.message}
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-8">
+                        <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                          <Gift className="h-8 w-8 text-green-600" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Challenge Configured!</h3>
+                        <p className="text-gray-600 mb-4">
+                          Your {watchedValues.unlockType.toLowerCase()} challenge is ready. Recipients will need to complete the challenge to unlock their gift.
+                        </p>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <h4 className="font-medium text-gray-900 mb-2">Challenge Summary:</h4>
+                          <p className="text-sm text-gray-600">
+                            <strong>Type:</strong> {watchedValues.unlockType} unlock
+                          </p>
+                          {watchedValues.unlockChallengeData && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              <strong>Challenge:</strong> {watchedValues.unlockChallengeData.slice(0, 100)}{watchedValues.unlockChallengeData.length > 100 ? '...' : ''}
+                            </p>
+                          )}
+                          {watchedValues.rewardContent && watchedValues.rewardContentType !== 'none' && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              <strong>Bonus Reward:</strong> {watchedValues.rewardContentType} content included
+                            </p>
+                          )}
                         </div>
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Claim Radius (meters)
-                      </label>
-                      <Input
-                        {...register('radius', { valueAsNumber: true })}
-                        type="number"
-                        min="1"
-                        max="1000"
-                        className={errors.radius ? 'border-red-500' : ''}
-                      />
-                      <p className="mt-1 text-xs text-gray-500">
-                        Recipients must be within this distance to claim the gift
-                      </p>
-                      {errors.radius && (
-                        <p className="mt-1 text-sm text-red-600">
-                          {errors.radius.message}
-                        </p>
-                      )}
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -588,14 +833,14 @@ export default function CreateGiftPage() {
                 ) : (
                   <Button 
                     type="submit" 
-                    disabled={!isValid || !selectedLocation || isCreating || isTxSuccess}
+                    disabled={!isValid || (watchedValues.unlockType === 'GPS' && !selectedLocation) || isCreating || isTxSuccess}
                     onClick={() => {
                       console.log('=== BUTTON CLICKED ===');
                       console.log('isValid:', isValid);
                       console.log('selectedLocation:', selectedLocation);
                       console.log('isCreating:', isCreating);
                       console.log('isTxSuccess:', isTxSuccess);
-                      console.log('Button disabled:', !isValid || !selectedLocation || isCreating || isTxSuccess);
+                      console.log('Button disabled:', !isValid || (watchedValues.unlockType === 'GPS' && !selectedLocation) || isCreating || isTxSuccess);
                     }}
                   >
                     {isCreating ? (

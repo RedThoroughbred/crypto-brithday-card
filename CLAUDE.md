@@ -510,23 +510,35 @@ def verify_location(target_lat: float, target_lon: float, user_lat: float, user_
     - **Chain Claims Table**: Claiming history and attempt tracking
     - **Alembic Migrations**: Proper database versioning and schema management
 
-### 🎯 CURRENT STATUS: PREMIUM DARK-THEMED GGT PLATFORM WITH CELEBRATION EFFECTS! 🌟
+### 🎯 CURRENT STATUS: REVOLUTIONARY 7-UNLOCK-TYPE GIFT SYSTEM! 🚀
+
+**✅ BREAKTHROUGH: Single Gifts Now Support All 7 Unlock Types!**
+- **Password Challenges**: Recipients enter correct password to unlock funds + bonus rewards ✅ TESTED
+- **GPS Location**: Traditional treasure hunt with coordinate verification ✅ TESTED  
+- **Quiz Questions**: Answer questions correctly to unlock rewards
+- **Video Content**: Watch videos before claiming
+- **Image Viewing**: View images before claiming
+- **Markdown Reading**: Read content before claiming
+- **URL Visiting**: Visit websites before claiming
 
 **✅ Revolutionary Platform Capabilities:**
-- **Dual Gift System**: Both single GGT gifts AND complex multi-step chain adventures working perfectly
-- **Single GGT Gifts**: Streamlined gift creation with GPS verification and instant claiming
-- **GGT Multi-Step Chains**: Create 2-10 step adventures with custom GGT token rewards
-- **Complete Unlock System**: All 7 unlock mechanisms fully implemented and tested (GPS, Video, Image, Markdown, Quiz, Password, URL)
-- **Template System**: Pre-built templates for Proposals, Birthdays, Anniversaries, Custom chains
-- **Progressive Unlocking**: Recipients complete steps sequentially to unlock rewards
-- **Professional Creation Flow**: Both single gift and chain creation wizards fully functional
-- **Smart Contract Ecosystem**: Multiple deployed contracts with latest verification logic
-- **Clean URL System**: Both `/gift/[id]` and `/chain/[id]` with automatic routing
-- **Database Integration**: Full backend persistence for both single gifts and chains
-- **Transaction Excellence**: Proper chain ID extraction using viem's event decoding
-- **Success Modals**: Professional feedback for both single gifts and multi-step chains
+- **Enhanced Single Gifts**: Now support same 7 unlock mechanisms as chains with bonus reward system
+- **Unlock Mechanism**: Determines HOW to claim (password, GPS, quiz, etc.)
+- **Bonus Rewards**: Optional content revealed WITH crypto funds (URLs, files, secret messages)
+- **Multi-Step Chains**: 2-10 step adventures with GGT token rewards and progressive unlocking
+- **Dual Persistence**: Both blockchain contracts AND database backend storage
+- **Professional UI**: Dynamic unlock interfaces that adapt based on gift type
+- **Smart Contract Integration**: Uses existing contracts creatively without modifications
+- **Reward Content Display**: Beautiful post-claim reveals with celebration effects
 
-**🌟 NEW: Premium Dark Theme Experience:**
+**✅ Technical Excellence:**
+- **Database Schema**: Separated `unlock_challenge_data` (how to unlock) from `reward_content` (bonus reveals)
+- **Form Validation**: Dynamic forms that show/hide fields based on unlock type selection
+- **Real-time Verification**: Live password/quiz validation with instant feedback
+- **Celebration System**: Confetti + reward reveals after successful claims
+- **Clean Architecture**: Reusable unlock system that could extend to chains
+
+**🌟 Premium Dark Theme Experience:**
 - **Sophisticated Dark UI**: Deep dark backgrounds (#0a0a0a) with cyan accent system (#00ffff)
 - **Floating Animations**: Gentle gift box animations and motion effects throughout UI
 - **Celebration System**: 150-particle confetti animations on successful gift/chain claims
@@ -534,11 +546,19 @@ def verify_location(target_lat: float, target_lon: float, user_lat: float, user_
 - **Professional Typography**: Glowing white text with proper contrast ratios
 - **Animated Transitions**: Smooth page transitions with Framer Motion integration
 - **Mobile Optimized**: Responsive design with performance-tuned animations
-- **Header Integration**: Dark navigation with cyan highlights and SEP token display
 
-**✅ Successfully Tested End-to-End (Latest Session - July 29, 2025):**
-- **Single GGT Gifts**: Complete creation flow working - form validation fixed ✅
-- **Single Gift Claiming**: GPS verification and GGT token transfers working ✅
+**✅ Successfully Tested End-to-End (Latest Session - July 30, 2025):**
+- **PASSWORD Unlock Gifts**: Recipients enter password → unlock crypto + secret message ✅ WORKING
+- **GPS Location Gifts**: Traditional coordinate-based treasure hunting ✅ WORKING  
+- **Form Validation Fixed**: All unlock types now properly validate and submit ✅
+- **Bonus Reward System**: Secret messages, URLs, files display after claiming ✅
+- **Real-time Password Validation**: Live feedback on correct/incorrect passwords ✅
+- **Database Integration**: All new unlock fields properly stored and retrieved ✅
+
+**🔧 Known Issues to Address:**
+- **Console Logging**: Excessive debug output throughout app needs cleanup
+- **GPS Clue Display**: Form riddle input not showing in claim interface
+- **Chain Enhancement**: Per-step bonus rewards not yet implemented for chains
 - **Single Gift Messages**: Personal messages now display correctly from backend storage ✅
 - **Multi-Step GGT Chains**: Created and tested 2-3 step adventures with progressive unlocking ✅
 - **Password Verification**: Case-sensitive password steps with proper hint display ✅

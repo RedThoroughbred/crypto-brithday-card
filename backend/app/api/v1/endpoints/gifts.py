@@ -15,7 +15,7 @@ from app.core.database import get_db
 from app.api.routes.auth import get_current_user_from_token
 from app.crud import gift as gift_crud, user as user_crud
 from app.schemas.gift import GiftCreate, GiftRead, GiftUpdate
-from app.models.gift import GiftStatus
+from app.models.gift import GiftStatus, UnlockType
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -77,6 +77,10 @@ class CreateGiftRequestV2(BaseModel):
     lat: float = Field(..., ge=-90, le=90, description="Latitude in decimal degrees")
     lon: float = Field(..., ge=-180, le=180, description="Longitude in decimal degrees")
     message: Optional[str] = Field(None, max_length=1000, description="Personal message to recipient")
+    unlock_type: Optional[UnlockType] = Field(UnlockType.GPS, description="Type of unlock mechanism (GPS, PASSWORD, QUIZ, etc.)")
+    unlock_challenge_data: Optional[str] = Field(None, max_length=5000, description="Challenge data (password, quiz Q&A, content URL)")
+    reward_content: Optional[str] = Field(None, max_length=2000, description="Reward content revealed after unlock (URL, file, message)")
+    reward_content_type: Optional[str] = Field(None, max_length=50, description="Type of reward content (url, file, message)")
 
 
 @router.post("", response_model=GiftRead, status_code=status.HTTP_201_CREATED)
@@ -105,7 +109,11 @@ async def create_gift(
             escrow_id=request.escrow_id,
             lat=request.lat,
             lon=request.lon,
-            message=request.message
+            message=request.message,
+            unlock_type=request.unlock_type or UnlockType.GPS,
+            unlock_challenge_data=request.unlock_challenge_data,
+            reward_content=request.reward_content,
+            reward_content_type=request.reward_content_type
         )
         
         # Store gift in database

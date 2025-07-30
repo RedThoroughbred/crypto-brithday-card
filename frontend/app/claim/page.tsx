@@ -15,7 +15,15 @@ import {
   AlertTriangle,
   Loader2,
   Edit3,
-  Sparkles
+  Sparkles,
+  ArrowRight,
+  MessageSquare,
+  Lock,
+  HelpCircle,
+  Video,
+  Image,
+  FileText,
+  Link
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -72,6 +80,10 @@ function ClaimGiftContent() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [claimSuccess, setClaimSuccess] = useState(false);
   const [backendGift, setBackendGift] = useState<any>(null);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [quizAnswer, setQuizAnswer] = useState('');
+  const [hasViewedContent, setHasViewedContent] = useState(false);
+  const [showRewardContent, setShowRewardContent] = useState(false);
 
   // Parse gift data from contract
   // Note: GGT and ETH contracts have same field order, so we can use same parsing
@@ -90,7 +102,11 @@ function ClaimGiftContent() {
     claimAttempts: Number(contractGift[11]),
     createdAt: Number(contractGift[12]),
     message: backendGift?.message || '', // Get message from backend
-    currency: isGGT ? 'GGT' : 'ETH'
+    currency: isGGT ? 'GGT' : 'ETH',
+    unlockType: backendGift?.unlock_type || 'GPS', // Get unlock type from backend
+    unlockChallengeData: backendGift?.unlock_challenge_data || '', // Get unlock challenge data from backend
+    rewardContent: backendGift?.reward_content || '', // Get reward content from backend
+    rewardContentType: backendGift?.reward_content_type || '', // Get reward content type from backend
   } : null;
 
   // Fetch gift message from backend
@@ -108,23 +124,45 @@ function ClaimGiftContent() {
   }, [giftId]);
 
   useEffect(() => {
-    if (location.latitude && location.longitude && gift) {
-      const dist = calculateDistance(
-        location.latitude,
-        location.longitude,
-        gift.targetLat,
-        gift.targetLng
-      );
-      setDistance(dist);
-      setCanClaim(dist <= gift.radius && !gift.claimed);
-      
-      // DEBUG: Force enable claim button if distance is very small
-      if (dist <= 1 && !gift.claimed) {
-        console.log('🐛 DEBUG: Force enabling claim button - distance:', dist, 'radius:', gift.radius);
-        setCanClaim(true);
+    if (gift) {
+      if (gift.unlockType === 'GPS') {
+        // GPS-based claiming requires location verification
+        if (location.latitude && location.longitude) {
+          const dist = calculateDistance(
+            location.latitude,
+            location.longitude,
+            gift.targetLat,
+            gift.targetLng
+          );
+          setDistance(dist);
+          setCanClaim(dist <= gift.radius && !gift.claimed);
+          
+          // DEBUG: Force enable claim button if distance is very small
+          if (dist <= 1 && !gift.claimed) {
+            console.log('🐛 DEBUG: Force enabling claim button - distance:', dist, 'radius:', gift.radius);
+            setCanClaim(true);
+          }
+        } else {
+          setCanClaim(false);
+        }
+      } else if (gift.unlockType === 'PASSWORD') {
+        // Password unlock requires correct password
+        setCanClaim(passwordInput === gift.unlockChallengeData && !gift.claimed);
+      } else if (gift.unlockType === 'QUIZ') {
+        // Quiz unlock requires correct answer
+        // Parse quiz data (format: "Question: What is 2+2? | Answer: 4")
+        const parts = gift.unlockChallengeData.split(' | Answer: ');
+        const correctAnswer = parts[1] || '';
+        setCanClaim(quizAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim() && !gift.claimed);
+      } else if (['VIDEO', 'IMAGE', 'MARKDOWN', 'URL'].includes(gift.unlockType)) {
+        // Content viewing types require viewing confirmation
+        setCanClaim(hasViewedContent && !gift.claimed);
+      } else {
+        // Fallback for other types
+        setCanClaim(!gift.claimed);
       }
     }
-  }, [location.latitude, location.longitude, gift]);
+  }, [location.latitude, location.longitude, gift, passwordInput, quizAnswer, hasViewedContent]);
 
   const getCurrentLocation = () => {
     setLocation(prev => ({ ...prev, loading: true, error: null }));
@@ -214,15 +252,23 @@ function ClaimGiftContent() {
   };
 
   const handleClaim = async () => {
-    if (!canClaim || !gift || !giftId || !location.latitude || !location.longitude) return;
+    if (!canClaim || !gift || !giftId) return;
+    
+    // For GPS gifts, require actual location
+    if (gift.unlockType === 'GPS' && (!location.latitude || !location.longitude)) return;
 
     setClaiming(true);
     try {
-      await claimGift(Number(giftId), location.latitude, location.longitude, isGGT);
+      // Use actual location for GPS gifts, dummy coordinates for others
+      const claimLat = gift.unlockType === 'GPS' ? location.latitude! : 0;
+      const claimLng = gift.unlockType === 'GPS' ? location.longitude! : 0;
+      
+      await claimGift(Number(giftId), claimLat, claimLng, isGGT);
       
       // Show celebration
       setClaimSuccess(true);
       setShowConfetti(true);
+      setShowRewardContent(true);
       
       toast({
         title: '🎉 Gift Claimed Successfully!',
@@ -363,26 +409,169 @@ function ClaimGiftContent() {
                   </CardContent>
                 </Card>
 
-                {/* Treasure Clue */}
-                <Card className="mb-6">
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Target className="mr-2 h-5 w-5" />
-                      Treasure Clue
-                    </CardTitle>
-                    <CardDescription>
-                      Solve this riddle to find the treasure location
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                      <p className="text-amber-800 font-medium">Find the special location to unlock your gift!</p>
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Dynamic Content Based on Unlock Type */}
+                {gift.unlockType === 'GPS' && (
+                  <Card className="mb-6">
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <Target className="mr-2 h-5 w-5" />
+                        Treasure Clue
+                      </CardTitle>
+                      <CardDescription>
+                        Solve this riddle to find the treasure location
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <p className="text-amber-800 font-medium">Find the special location to unlock your gift!</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
-                {/* Location Status */}
-                <Card className="mb-6">
+                {gift.unlockType === 'PASSWORD' && (
+                  <Card className="mb-6">
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <Lock className="mr-2 h-5 w-5" />
+                        Password Challenge
+                      </CardTitle>
+                      <CardDescription>
+                        Enter the correct password to unlock your gift
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p className="text-blue-800 font-medium mb-3">🔐 Password Required</p>
+                        <div className="space-y-3">
+                          <Input
+                            type="password"
+                            placeholder="Enter password..."
+                            value={passwordInput}
+                            onChange={(e) => setPasswordInput(e.target.value)}
+                            className="max-w-xs"
+                          />
+                          {passwordInput && passwordInput !== gift.unlockChallengeData && (
+                            <p className="text-red-600 text-sm">❌ Incorrect password</p>
+                          )}
+                          {passwordInput && passwordInput === gift.unlockChallengeData && (
+                            <p className="text-green-600 text-sm">✅ Password correct! You can now claim your gift.</p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {gift.unlockType === 'QUIZ' && (
+                  <Card className="mb-6">
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <HelpCircle className="mr-2 h-5 w-5" />
+                        Quiz Challenge
+                      </CardTitle>
+                      <CardDescription>
+                        Answer the question correctly to unlock your gift
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <p className="text-green-800 font-medium mb-3">❓ Quiz Question</p>
+                        <div className="space-y-3">
+                          {(() => {
+                            const parts = gift.unlockChallengeData.split(' | Answer: ');
+                            const question = parts[0] || gift.unlockChallengeData;
+                            return (
+                              <>
+                                <p className="text-gray-700 font-medium">{question}</p>
+                                <Input
+                                  placeholder="Enter your answer..."
+                                  value={quizAnswer}
+                                  onChange={(e) => setQuizAnswer(e.target.value)}
+                                  className="max-w-xs"
+                                />
+                                {quizAnswer && !canClaim && (
+                                  <p className="text-red-600 text-sm">❌ Incorrect answer</p>
+                                )}
+                                {canClaim && quizAnswer && (
+                                  <p className="text-green-600 text-sm">✅ Correct! You can now claim your gift.</p>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {['VIDEO', 'IMAGE', 'MARKDOWN', 'URL'].includes(gift.unlockType) && (
+                  <Card className="mb-6">
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        {gift.unlockType === 'VIDEO' && <Video className="mr-2 h-5 w-5" />}
+                        {gift.unlockType === 'IMAGE' && <Image className="mr-2 h-5 w-5" />}
+                        {gift.unlockType === 'MARKDOWN' && <FileText className="mr-2 h-5 w-5" />}
+                        {gift.unlockType === 'URL' && <Link className="mr-2 h-5 w-5" />}
+                        {gift.unlockType === 'VIDEO' && 'Watch Video'}
+                        {gift.unlockType === 'IMAGE' && 'View Image'}
+                        {gift.unlockType === 'MARKDOWN' && 'Read Content'}
+                        {gift.unlockType === 'URL' && 'Visit Website'}
+                      </CardTitle>
+                      <CardDescription>
+                        {gift.unlockType === 'VIDEO' && 'Watch the video to unlock your gift'}
+                        {gift.unlockType === 'IMAGE' && 'View the image to unlock your gift'}
+                        {gift.unlockType === 'MARKDOWN' && 'Read the content to unlock your gift'}
+                        {gift.unlockType === 'URL' && 'Visit the website to unlock your gift'}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                        <p className="text-purple-800 font-medium mb-3">
+                          {gift.unlockType === 'VIDEO' && '🎥 Video Content'}
+                          {gift.unlockType === 'IMAGE' && '🖼️ Image Content'}
+                          {gift.unlockType === 'MARKDOWN' && '📄 Written Content'}
+                          {gift.unlockType === 'URL' && '🔗 Website Link'}
+                        </p>
+                        
+                        {gift.unlockType === 'MARKDOWN' && (
+                          <div className="bg-white p-3 rounded border text-gray-700 mb-3">
+                            <pre className="whitespace-pre-wrap font-sans">{gift.unlockChallengeData}</pre>
+                          </div>
+                        )}
+                        
+                        {(gift.unlockType === 'VIDEO' || gift.unlockType === 'IMAGE' || gift.unlockType === 'URL') && gift.unlockChallengeData && (
+                          <div className="mb-3">
+                            <a 
+                              href={gift.unlockChallengeData} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                              onClick={() => setHasViewedContent(true)}
+                            >
+                              <ArrowRight className="mr-2 h-4 w-4" />
+                              {gift.unlockType === 'VIDEO' && 'Watch Video'}
+                              {gift.unlockType === 'IMAGE' && 'View Image'}
+                              {gift.unlockType === 'URL' && 'Visit Website'}
+                            </a>
+                          </div>
+                        )}
+                        
+                        {!hasViewedContent && (
+                          <p className="text-purple-700 text-sm">👆 Click the link above to unlock your gift</p>
+                        )}
+                        
+                        {hasViewedContent && (
+                          <p className="text-green-600 text-sm">✅ Content viewed! You can now claim your gift.</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Location Status - Only for GPS unlock type */}
+                {gift.unlockType === 'GPS' && (
+                  <Card className="mb-6">
                   <CardHeader>
                     <CardTitle className="flex items-center">
                       <MapPin className="mr-2 h-5 w-5" />
@@ -646,6 +835,7 @@ function ClaimGiftContent() {
                     )}
                   </CardContent>
                 </Card>
+                )}
 
                 {/* Claim Button */}
                 <Card>
@@ -667,10 +857,15 @@ function ClaimGiftContent() {
                             <Gift className="mr-2 h-4 w-4" />
                             Claim {gift.amount} {gift.currency}
                           </>
-                        ) : (
+                        ) : gift.unlockType === 'GPS' ? (
                           <>
                             <MapPin className="mr-2 h-4 w-4" />
                             Get to Location to Claim
+                          </>
+                        ) : (
+                          <>
+                            <Gift className="mr-2 h-4 w-4" />
+                            Ready to Claim
                           </>
                         )}
                       </Button>
@@ -683,6 +878,63 @@ function ClaimGiftContent() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Reward Content Display (shown after claiming) */}
+                {showRewardContent && gift.rewardContent && (
+                  <Card className="mb-6 border-2 border-green-200 bg-green-50">
+                    <CardHeader>
+                      <CardTitle className="flex items-center text-green-800">
+                        <Sparkles className="mr-2 h-5 w-5" />
+                        🎉 Bonus Reward Unlocked!
+                      </CardTitle>
+                      <CardDescription>
+                        You've unlocked additional content along with your crypto!
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="bg-white border border-green-200 rounded-lg p-4">
+                        {gift.rewardContentType === 'url' && (
+                          <div>
+                            <p className="text-green-800 font-medium mb-3">🔗 Special Website Link:</p>
+                            <a 
+                              href={gift.rewardContent} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              <ArrowRight className="mr-2 h-4 w-4" />
+                              Visit: {gift.rewardContent}
+                            </a>
+                          </div>
+                        )}
+                        
+                        {gift.rewardContentType === 'file' && (
+                          <div>
+                            <p className="text-green-800 font-medium mb-3">📎 File Download:</p>
+                            <a 
+                              href={gift.rewardContent} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              <ArrowRight className="mr-2 h-4 w-4" />
+                              Download: {gift.rewardContent.split('/').pop() || gift.rewardContent}
+                            </a>
+                          </div>
+                        )}
+                        
+                        {gift.rewardContentType === 'message' && (
+                          <div>
+                            <p className="text-green-800 font-medium mb-3">💬 Secret Message:</p>
+                            <div className="bg-gray-50 p-3 rounded border text-gray-700">
+                              <pre className="whitespace-pre-wrap font-sans">{gift.rewardContent}</pre>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Expiry Info */}
                 <div className="mt-6 text-center">

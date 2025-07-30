@@ -26,6 +26,10 @@ export interface CreateGiftParams {
   clue: string;
   message: string;
   expiryDays: number;
+  unlockType?: 'GPS' | 'VIDEO' | 'IMAGE' | 'MARKDOWN' | 'QUIZ' | 'PASSWORD' | 'URL'; // All 7 unlock types
+  unlockChallengeData?: string; // Challenge data (password, quiz, content URL, etc.)
+  rewardContent?: string; // Bonus content revealed after unlock
+  rewardContentType?: string; // Type of reward content
 }
 
 export interface Gift {
@@ -260,6 +264,10 @@ export function useLocationEscrow() {
                 lat: currentGiftParams.latitude,
                 lon: currentGiftParams.longitude,
                 message: currentGiftParams.message,
+                unlock_type: currentGiftParams.unlockType || 'GPS',
+                unlock_challenge_data: currentGiftParams.unlockChallengeData,
+                reward_content: currentGiftParams.rewardContent,
+                reward_content_type: currentGiftParams.rewardContentType,
               };
 
               await giftAPI.createGift(giftData);

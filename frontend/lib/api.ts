@@ -105,6 +105,10 @@ export interface GiftCreate {
   lat: number;
   lon: number;
   message?: string;
+  unlock_type?: 'GPS' | 'VIDEO' | 'IMAGE' | 'MARKDOWN' | 'QUIZ' | 'PASSWORD' | 'URL';
+  unlock_challenge_data?: string;
+  reward_content?: string;
+  reward_content_type?: string;
 }
 
 export interface GiftResponse {
