@@ -46,7 +46,7 @@ const achievementIcons = {
 
 export default function ProfilePage() {
   const { address, isConnected } = useAccount();
-  const { isAuthenticated, authenticate, token } = useAuth();
+  const { isAuthenticated, authenticate, token, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('profile');
@@ -167,8 +167,8 @@ export default function ProfilePage() {
     );
   }
 
-  // Show authentication prompt
-  if (!isAuthenticated) {
+  // Show authentication prompt (but wait for auth loading to complete)
+  if (!authLoading && !isAuthenticated) {
     return (
       <MainLayout>
         <div className="min-h-screen gradient-dark-bg flex items-center justify-center">
@@ -181,7 +181,10 @@ export default function ProfilePage() {
             </CardHeader>
             <CardContent className="text-center">
               <Button 
-                onClick={authenticate}
+                onClick={() => {
+                  console.log('Profile: Authenticate button clicked, wallet connected:', isConnected, 'address:', address);
+                  authenticate();
+                }}
                 className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold"
               >
                 Authenticate Wallet
@@ -193,8 +196,8 @@ export default function ProfilePage() {
     );
   }
 
-  // Show loading state
-  if (profileLoading || preferencesLoading || achievementsLoading) {
+  // Show loading state (including auth loading)
+  if (authLoading || profileLoading || preferencesLoading || achievementsLoading) {
     return (
       <MainLayout>
         <div className="min-h-screen gradient-dark-bg">

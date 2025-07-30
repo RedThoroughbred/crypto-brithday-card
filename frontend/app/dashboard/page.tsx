@@ -21,7 +21,7 @@ import { Gift, MapPin, Users, TrendingUp, Activity } from 'lucide-react';
 
 export default function DashboardPage() {
   const { address, isConnected } = useAccount();
-  const { isAuthenticated, authenticate } = useAuth();
+  const { isAuthenticated, authenticate, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
 
   // Fetch dashboard stats
@@ -53,8 +53,8 @@ export default function DashboardPage() {
     );
   }
 
-  // Show authentication prompt
-  if (!isAuthenticated) {
+  // Show authentication prompt (but wait for auth loading to complete)
+  if (!authLoading && !isAuthenticated) {
     return (
       <MainLayout>
         <div className="min-h-screen gradient-dark-bg flex items-center justify-center">
@@ -67,7 +67,10 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="text-center">
               <Button 
-                onClick={authenticate}
+                onClick={() => {
+                  console.log('Dashboard: Authenticate button clicked, wallet connected:', isConnected, 'address:', address);
+                  authenticate();
+                }}
                 className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold"
               >
                 Authenticate Wallet
@@ -79,8 +82,8 @@ export default function DashboardPage() {
     );
   }
 
-  // Handle loading state
-  if (statsLoading) {
+  // Handle loading state (including auth loading)
+  if (authLoading || statsLoading) {
     return (
       <MainLayout>
         <div className="min-h-screen gradient-dark-bg">

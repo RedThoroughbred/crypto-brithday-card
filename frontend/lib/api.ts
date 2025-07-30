@@ -249,7 +249,7 @@ class APIClient {
   }
 
   async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-    const url = new URL(endpoint, this.baseURL + '/');
+    const url = new URL(API_PREFIX + '/' + endpoint, this.baseURL + '/');
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         url.searchParams.append(key, value);
@@ -265,7 +265,7 @@ class APIClient {
   }
 
   async post<T>(endpoint: string, data?: any): Promise<T> {
-    const url = new URL(endpoint, this.baseURL + '/');
+    const url = new URL(API_PREFIX + '/' + endpoint, this.baseURL + '/');
     const response = await fetch(url.toString(), {
       method: 'POST',
       headers: this.getHeaders(),
@@ -276,7 +276,7 @@ class APIClient {
   }
 
   async put<T>(endpoint: string, data?: any): Promise<T> {
-    const url = new URL(endpoint, this.baseURL + '/');
+    const url = new URL(API_PREFIX + '/' + endpoint, this.baseURL + '/');
     const response = await fetch(url.toString(), {
       method: 'PUT',
       headers: this.getHeaders(),
@@ -287,7 +287,7 @@ class APIClient {
   }
 
   async delete<T>(endpoint: string): Promise<T> {
-    const url = new URL(endpoint, this.baseURL + '/');
+    const url = new URL(API_PREFIX + '/' + endpoint, this.baseURL + '/');
     const response = await fetch(url.toString(), {
       method: 'DELETE',
       headers: this.getHeaders(),

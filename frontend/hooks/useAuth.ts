@@ -17,8 +17,58 @@ interface AuthState {
   token: string | null;
 }
 
-// In-memory token storage (you might want to use localStorage in production)
-let authToken: string | null = null;
+// Persistent token storage with localStorage
+const TOKEN_STORAGE_KEY = 'geogift_auth_token';
+const WALLET_STORAGE_KEY = 'geogift_wallet_address';
+
+// Get token from localStorage or memory
+const getStoredToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(TOKEN_STORAGE_KEY);
+  } catch (error) {
+    console.warn('localStorage not available, using memory storage');
+    return null;
+  }
+};
+
+// Store token in localStorage
+const setStoredToken = (token: string | null): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.warn('localStorage not available for token storage');
+  }
+};
+
+// Get stored wallet address
+const getStoredWallet = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(WALLET_STORAGE_KEY);
+  } catch (error) {
+    return null;
+  }
+};
+
+// Store wallet address
+const setStoredWallet = (address: string | null): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (address) {
+      localStorage.setItem(WALLET_STORAGE_KEY, address);
+    } else {
+      localStorage.removeItem(WALLET_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.warn('localStorage not available for wallet storage');
+  }
+};
 
 export function useAuth() {
   const { address, isConnected } = useAccount();
@@ -26,11 +76,37 @@ export function useAuth() {
   
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
-    isLoading: false,
+    isLoading: true, // Start with loading to check stored token
     error: null,
     walletAddress: null,
     token: null,
   });
+
+  // Initialize auth state from localStorage on mount
+  useEffect(() => {
+    const storedToken = getStoredToken();
+    const storedWallet = getStoredWallet();
+    
+    if (storedToken && storedWallet && address && address.toLowerCase() === storedWallet.toLowerCase()) {
+      // Valid stored token for current wallet
+      chainAPI.setAuthToken(storedToken);
+      dashboardAPI.setAuthToken(storedToken);
+      setAuthState({
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+        walletAddress: address,
+        token: storedToken,
+      });
+    } else {
+      // No valid stored token or wallet mismatch
+      if (storedToken || storedWallet) {
+        setStoredToken(null);
+        setStoredWallet(null);
+      }
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+    }
+  }, [address]);
 
   // Authentication function
   const authenticate = useCallback(async () => {
@@ -48,7 +124,8 @@ export function useAuth() {
 
       // Step 1: Request challenge from backend
       console.log('Requesting authentication challenge for:', address);
-      const challengeResponse = await fetch('http://localhost:8000/api/v1/auth/challenge', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const challengeResponse = await fetch(`${apiUrl}/api/v1/auth/challenge`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,7 +154,7 @@ export function useAuth() {
       console.log('Message signed:', signature);
 
       // Step 3: Verify signature with backend
-      const verifyResponse = await fetch('http://localhost:8000/api/v1/auth/verify', {
+      const verifyResponse = await fetch(`${apiUrl}/api/v1/auth/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,17 +173,19 @@ export function useAuth() {
       const authData = await verifyResponse.json();
       console.log('Authentication successful:', authData);
 
-      // Store token and update state
-      authToken = authData.access_token;
-      chainAPI.setAuthToken(authToken);
-      dashboardAPI.setAuthToken(authToken);
+      // Store token persistently and update state
+      const token = authData.access_token;
+      setStoredToken(token);
+      setStoredWallet(address);
+      chainAPI.setAuthToken(token);
+      dashboardAPI.setAuthToken(token);
 
       setAuthState({
         isAuthenticated: true,
         isLoading: false,
         error: null,
         walletAddress: address,
-        token: authToken,
+        token: token,
       });
 
       return true;
@@ -131,6 +210,10 @@ export function useAuth() {
       authenticate();
     } else if (!isConnected) {
       // Clear auth state when wallet disconnects
+      setStoredToken(null);
+      setStoredWallet(null);
+      chainAPI.setAuthToken(null);
+      dashboardAPI.setAuthToken(null);
       setAuthState({
         isAuthenticated: false,
         isLoading: false,
@@ -138,15 +221,13 @@ export function useAuth() {
         walletAddress: null,
         token: null,
       });
-      authToken = null;
-      chainAPI.setAuthToken(null);
-      dashboardAPI.setAuthToken(null);
     }
   }, [isConnected, address, authState.isAuthenticated, authState.isLoading]); // Remove authState.error and authenticate from deps to prevent loops
 
   // Manual logout
   const logout = useCallback(() => {
-    authToken = null;
+    setStoredToken(null);
+    setStoredWallet(null);
     chainAPI.setAuthToken(null);
     dashboardAPI.setAuthToken(null);
     setAuthState({
@@ -160,7 +241,7 @@ export function useAuth() {
 
   // Check if we need to authenticate (for API calls)
   const ensureAuthenticated = useCallback(async (): Promise<boolean> => {
-    if (authState.isAuthenticated && authToken) {
+    if (authState.isAuthenticated && authState.token) {
       return true;
     }
     
@@ -169,7 +250,7 @@ export function useAuth() {
     }
 
     return await authenticate();
-  }, [authState.isAuthenticated, isConnected, address, authenticate]);
+  }, [authState.isAuthenticated, authState.token, isConnected, address, authenticate]);
 
   return {
     ...authState,
