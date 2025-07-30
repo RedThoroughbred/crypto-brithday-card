@@ -7,6 +7,15 @@
 
 import { UnlockType } from './unlock-types';
 
+// Dashboard types
+import type {
+  DashboardStats,
+  DashboardGift,
+  DashboardChain,
+  DashboardGiftListResponse,
+  DashboardChainListResponse
+} from '@/types/dashboard';
+
 // API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_PREFIX = '/api/v1';
@@ -467,6 +476,55 @@ export const chainUtils = {
     completedAt: chain.completed_at,
     steps: chain.steps?.map(chainUtils.formatStepFromAPI) || [],
   }),
+};
+
+// Dashboard API functions (new - isolated)
+export const dashboardAPI = {
+  // Authentication (shared with chainAPI)
+  setAuthToken: (token: string | null) => {
+    apiClient.setAuthToken(token);
+  },
+
+  // Get user statistics
+  getStats: async (): Promise<DashboardStats> => {
+    return apiClient.get('dashboard/stats');
+  },
+
+  // Get sent gifts
+  getSentGifts: async (options?: { skip?: number; limit?: number }): Promise<DashboardGiftListResponse> => {
+    const params: Record<string, string> = {};
+    if (options?.skip !== undefined) params.skip = options.skip.toString();
+    if (options?.limit !== undefined) params.limit = options.limit.toString();
+    
+    return apiClient.get('dashboard/gifts/sent', params);
+  },
+
+  // Get received gifts
+  getReceivedGifts: async (options?: { skip?: number; limit?: number }): Promise<DashboardGiftListResponse> => {
+    const params: Record<string, string> = {};
+    if (options?.skip !== undefined) params.skip = options.skip.toString();
+    if (options?.limit !== undefined) params.limit = options.limit.toString();
+    
+    return apiClient.get('dashboard/gifts/received', params);
+  },
+
+  // Get sent chains
+  getSentChains: async (options?: { skip?: number; limit?: number }): Promise<DashboardChainListResponse> => {
+    const params: Record<string, string> = {};
+    if (options?.skip !== undefined) params.skip = options.skip.toString();
+    if (options?.limit !== undefined) params.limit = options.limit.toString();
+    
+    return apiClient.get('dashboard/chains/sent', params);
+  },
+
+  // Get received chains
+  getReceivedChains: async (options?: { skip?: number; limit?: number }): Promise<DashboardChainListResponse> => {
+    const params: Record<string, string> = {};
+    if (options?.skip !== undefined) params.skip = options.skip.toString();
+    if (options?.limit !== undefined) params.limit = options.limit.toString();
+    
+    return apiClient.get('dashboard/chains/received', params);
+  },
 };
 
 export default chainAPI;

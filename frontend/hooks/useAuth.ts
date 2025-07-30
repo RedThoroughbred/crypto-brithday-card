@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
-import { chainAPI } from '@/lib/api';
+import { chainAPI, dashboardAPI } from '@/lib/api';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -99,6 +99,7 @@ export function useAuth() {
       // Store token and update state
       authToken = authData.access_token;
       chainAPI.setAuthToken(authToken);
+      dashboardAPI.setAuthToken(authToken);
 
       setAuthState({
         isAuthenticated: true,
@@ -139,6 +140,7 @@ export function useAuth() {
       });
       authToken = null;
       chainAPI.setAuthToken(null);
+      dashboardAPI.setAuthToken(null);
     }
   }, [isConnected, address, authState.isAuthenticated, authState.isLoading]); // Remove authState.error and authenticate from deps to prevent loops
 
@@ -146,6 +148,7 @@ export function useAuth() {
   const logout = useCallback(() => {
     authToken = null;
     chainAPI.setAuthToken(null);
+    dashboardAPI.setAuthToken(null);
     setAuthState({
       isAuthenticated: false,
       isLoading: false,

@@ -1,89 +1,41 @@
 'use client';
 
+/**
+ * Dashboard Page - User's gift and chain history
+ * 
+ * Shows comprehensive view of sent/received gifts and chains with statistics
+ */
+
 import { useState } from 'react';
-import Link from 'next/link';
 import { useAccount } from 'wagmi';
-import { motion } from 'framer-motion';
-import { 
-  Plus, 
-  Gift, 
-  MapPin, 
-  Clock, 
-  TrendingUp,
-  Users,
-  Award
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useQuery } from '@tanstack/react-query';
 import { MainLayout } from '@/components/layout/main-layout';
-
-// Mock data - will be replaced with real API calls
-const mockStats = {
-  totalGifts: 12,
-  totalValue: '2.45',
-  activeGifts: 3,
-  claimedGifts: 9,
-};
-
-const mockRecentGifts = [
-  {
-    id: '1',
-    recipient: '0x742d...35Cc',
-    amount: '0.1 ETH',
-    status: 'claimed',
-    location: 'Central Park, NYC',
-    createdAt: '2024-01-15T10:00:00Z',
-    claimedAt: '2024-01-16T14:30:00Z',
-  },
-  {
-    id: '2',
-    recipient: '0x123a...89Bb',
-    amount: '0.05 ETH',
-    status: 'active',
-    location: 'Golden Gate Bridge, SF',
-    createdAt: '2024-01-14T15:20:00Z',
-    claimedAt: null,
-  },
-  {
-    id: '3',
-    recipient: '0x456c...12Dd',
-    amount: '0.2 ETH',
-    status: 'expired',
-    location: 'Times Square, NYC',
-    createdAt: '2024-01-10T09:15:00Z',
-    claimedAt: null,
-  },
-];
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'active':
-      return 'text-cyan-400 bg-cyan-900/50 border-cyan-900/50';
-    case 'claimed':
-      return 'text-green-400 bg-green-900/50 border-green-900/50';
-    case 'expired':
-      return 'text-red-400 bg-red-900/50 border-red-900/50';
-    default:
-      return 'text-gray-400 bg-gray-900/50 border-gray-900/50';
-  }
-};
-
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'active':
-      return Clock;
-    case 'claimed':
-      return Award;
-    case 'expired':
-      return Clock;
-    default:
-      return Gift;
-  }
-};
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { dashboardAPI } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
+import { DashboardStats, GiftsTable, ChainsTable } from '@/components/dashboard';
+import { Gift, MapPin, Users, TrendingUp, Activity } from 'lucide-react';
 
 export default function DashboardPage() {
   const { address, isConnected } = useAccount();
+  const { isAuthenticated, authenticate } = useAuth();
+  const [activeTab, setActiveTab] = useState('overview');
 
+  // Fetch dashboard stats
+  const { 
+    data: stats, 
+    isLoading: statsLoading, 
+    error: statsError 
+  } = useQuery({
+    queryKey: ['dashboard-stats', address],
+    queryFn: dashboardAPI.getStats,
+    enabled: isConnected && isAuthenticated && !!address,
+  });
+
+  // Show wallet connection prompt
   if (!isConnected) {
     return (
       <MainLayout>
@@ -92,9 +44,81 @@ export default function DashboardPage() {
             <CardHeader className="text-center">
               <CardTitle className="text-white">Connect Your Wallet</CardTitle>
               <CardDescription className="text-gray-400">
-                Please connect your wallet to view your dashboard
+                Please connect your wallet to view your gift dashboard
               </CardDescription>
             </CardHeader>
+          </Card>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Show authentication prompt
+  if (!isAuthenticated) {
+    return (
+      <MainLayout>
+        <div className="min-h-screen gradient-dark-bg flex items-center justify-center">
+          <Card className="w-full max-w-md card-glow">
+            <CardHeader className="text-center">
+              <CardTitle className="text-white">Authentication Required</CardTitle>
+              <CardDescription className="text-gray-400">
+                Please authenticate with your wallet to access your dashboard
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <Button 
+                onClick={authenticate}
+                className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold"
+              >
+                Authenticate Wallet
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Handle loading state
+  if (statsLoading) {
+    return (
+      <MainLayout>
+        <div className="min-h-screen gradient-dark-bg">
+          <div className="container mx-auto px-4 py-8">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-700 rounded w-64 mb-8"></div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-32 bg-gray-700 rounded card-glow"></div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Handle error state
+  if (statsError) {
+    return (
+      <MainLayout>
+        <div className="min-h-screen gradient-dark-bg flex items-center justify-center">
+          <Card className="w-full max-w-md card-glow">
+            <CardHeader className="text-center">
+              <CardTitle className="text-red-400">Error Loading Dashboard</CardTitle>
+              <CardDescription className="text-gray-400">
+                {statsError instanceof Error ? statsError.message : 'Failed to load dashboard data'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <Button 
+                onClick={() => window.location.reload()}
+                className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold"
+              >
+                Retry
+              </Button>
+            </CardContent>
           </Card>
         </div>
       </MainLayout>
@@ -104,191 +128,152 @@ export default function DashboardPage() {
   return (
     <MainLayout>
       <div className="min-h-screen gradient-dark-bg">
-        <div className="px-4 py-8 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-7xl">
-            {/* Header */}
-            <motion.div 
-              className="mb-8"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold text-glow-white">Dashboard</h1>
-                  <p className="mt-2 text-gray-400">
-                    Welcome back! Here's an overview of your GeoGift activity.
-                  </p>
-                </div>
-                <Button asChild size="lg" className="button-glow">
-                  <Link href="/create">
-                    <Plus className="mr-2 h-5 w-5" />
-                    Create Gift
-                  </Link>
-                </Button>
-              </div>
-            </motion.div>
+        <div className="container mx-auto px-4 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-white mb-2 text-glow">
+              Your GeoGift Dashboard
+            </h1>
+            <p className="text-gray-400">
+              Track your gifts, chains, and crypto adventures
+            </p>
+          </div>
 
-            {/* Stats Grid */}
-            <div className="mb-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.1 }}
+          {/* Statistics Overview */}
+          {stats && <DashboardStats stats={stats} />}
+
+          {/* Main Content Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
+            <TabsList className="grid w-full grid-cols-5 bg-gray-800 border-gray-700">
+              <TabsTrigger 
+                value="overview" 
+                className="data-[state=active]:bg-cyan-500 data-[state=active]:text-black"
               >
-                <Card className="card-glow hover:glow-cyan-intense transition-all duration-300">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-400">Total Gifts</p>
-                        <p className="text-3xl font-bold text-white">{mockStats.totalGifts}</p>
-                      </div>
-                      <div className="rounded-lg bg-cyan-500/20 p-3 glow-cyan">
-                        <Gift className="h-6 w-6 text-cyan-500" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.2 }}
+                <Activity className="w-4 h-4 mr-2" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger 
+                value="sent-gifts"
+                className="data-[state=active]:bg-cyan-500 data-[state=active]:text-black"
               >
-                <Card className="card-glow hover:glow-cyan-intense transition-all duration-300">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-400">Total Value</p>
-                        <p className="text-3xl font-bold text-white">{mockStats.totalValue} ETH</p>
-                      </div>
-                      <div className="rounded-lg bg-emerald-500/20 p-3">
-                        <TrendingUp className="h-6 w-6 text-emerald-500" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.3 }}
+                <Gift className="w-4 h-4 mr-2" />
+                Sent Gifts
+              </TabsTrigger>
+              <TabsTrigger 
+                value="sent-chains"
+                className="data-[state=active]:bg-cyan-500 data-[state=active]:text-black"
               >
-                <Card className="card-glow hover:glow-cyan-intense transition-all duration-300">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-400">Active Gifts</p>
-                        <p className="text-3xl font-bold text-white">{mockStats.activeGifts}</p>
-                      </div>
-                      <div className="rounded-lg bg-yellow-500/20 p-3">
-                        <Clock className="h-6 w-6 text-yellow-500" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.4 }}
+                <MapPin className="w-4 h-4 mr-2" />
+                Sent Chains
+              </TabsTrigger>
+              <TabsTrigger 
+                value="received-gifts"
+                className="data-[state=active]:bg-cyan-500 data-[state=active]:text-black"
               >
-                <Card className="card-glow hover:glow-cyan-intense transition-all duration-300">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-400">Claimed Gifts</p>
-                        <p className="text-3xl font-bold text-white">{mockStats.claimedGifts}</p>
-                      </div>
-                      <div className="rounded-lg bg-purple-500/20 p-3">
-                        <Award className="h-6 w-6 text-purple-500" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </div>
+                <Users className="w-4 h-4 mr-2" />
+                Received Gifts
+              </TabsTrigger>
+              <TabsTrigger 
+                value="received-chains"
+                className="data-[state=active]:bg-cyan-500 data-[state=active]:text-black"
+              >
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Received Chains
+              </TabsTrigger>
+            </TabsList>
 
-            {/* Recent Gifts */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.5 }}
-            >
-              <Card className="card-glow hover:glow-cyan-intense transition-all duration-300">
-                <CardHeader>
-                  <CardTitle className="text-white">Recent Gifts</CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Your latest gift activities and their current status.
-                  </CardDescription>
-                </CardHeader>
-              <CardContent>
-                {mockRecentGifts.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Gift className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-4 text-lg font-medium text-white">No gifts yet</h3>
-                    <p className="mt-2 text-gray-400">
-                      Get started by creating your first gift!
-                    </p>
-                    <Button asChild className="mt-4 button-glow">
-                      <Link href="/create">Create Your First Gift</Link>
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {mockRecentGifts.map((gift) => {
-                      const StatusIcon = getStatusIcon(gift.status);
-                      return (
-                        <div
-                          key={gift.id}
-                          className="flex items-center justify-between rounded-lg border border-gray-700 bg-gray-800/50 p-4 hover:bg-gray-700/50 transition-colors"
-                        >
-                          <div className="flex items-center space-x-4">
-                            <div className="rounded-lg bg-cyan-500/20 p-2">
-                              <StatusIcon className="h-5 w-5 text-cyan-500" />
+            <TabsContent value="overview" className="mt-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Recent Activity */}
+                <Card className="bg-gray-800/50 border-gray-700 card-glow">
+                  <CardHeader>
+                    <CardTitle className="text-white">Recent Activity</CardTitle>
+                    <CardDescription className="text-gray-400">
+                      Your latest gift and chain events
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {stats?.recent_activity?.length ? (
+                      <div className="space-y-3">
+                        {stats.recent_activity.map((activity, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-gray-700/50 rounded">
+                            <div className="flex items-center space-x-3">
+                              <Badge variant="outline" className="text-cyan-400 border-cyan-400">
+                                {activity.type}
+                              </Badge>
+                              <span className="text-white text-sm">
+                                To: {activity.recipient}
+                              </span>
                             </div>
-                            <div>
-                              <div className="flex items-center space-x-2">
-                                <p className="font-medium text-white">
-                                  Gift to {gift.recipient}
-                                </p>
-                                <span
-                                  className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(
-                                    gift.status
-                                  )}`}
-                                >
-                                  {gift.status}
-                                </span>
+                            <div className="text-right">
+                              <div className="text-cyan-400 font-bold">
+                                {activity.amount} GGT
                               </div>
-                              <div className="flex items-center space-x-4 text-sm text-gray-400">
-                                <span>{gift.amount}</span>
-                                <span className="flex items-center">
-                                  <MapPin className="mr-1 h-3 w-3" />
-                                  {gift.location}
-                                </span>
-                                <span>
-                                  {gift.status === 'claimed' && gift.claimedAt
-                                    ? `Claimed ${new Date(gift.claimedAt).toLocaleDateString()}`
-                                    : `Created ${new Date(gift.createdAt).toLocaleDateString()}`}
-                                </span>
+                              <div className="text-xs text-gray-400">
+                                {new Date(activity.created_at).toLocaleDateString()}
                               </div>
                             </div>
                           </div>
-                          <Button variant="outline" size="sm" className="border-cyan-500 text-cyan-500 hover:bg-cyan-500 hover:text-black">
-                            View Details
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-              </Card>
-            </motion.div>
-          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-400 py-8">
+                        <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No recent activity yet</p>
+                        <p className="text-sm">Create your first gift to get started!</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Popular Unlock Types */}
+                <Card className="bg-gray-800/50 border-gray-700 card-glow">
+                  <CardHeader>
+                    <CardTitle className="text-white">Popular Unlock Types</CardTitle>
+                    <CardDescription className="text-gray-400">
+                      Your most used gift mechanisms
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {stats?.popular_unlock_types?.length ? (
+                      <div className="space-y-3">
+                        {stats.popular_unlock_types.map((type, index) => (
+                          <div key={index} className="flex items-center justify-between">
+                            <span className="text-white capitalize">{type.type.replace('_', ' ')}</span>
+                            <Badge variant="outline" className="text-cyan-400 border-cyan-400">
+                              {type.count}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-400 py-8">
+                        <Gift className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No gift types yet</p>
+                        <p className="text-sm">Create some gifts to see your preferences!</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="sent-gifts" className="mt-6">
+              <GiftsTable type="sent" />
+            </TabsContent>
+
+            <TabsContent value="sent-chains" className="mt-6">
+              <ChainsTable type="sent" />
+            </TabsContent>
+
+            <TabsContent value="received-gifts" className="mt-6">
+              <GiftsTable type="received" />
+            </TabsContent>
+
+            <TabsContent value="received-chains" className="mt-6">
+              <ChainsTable type="received" />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </MainLayout>
