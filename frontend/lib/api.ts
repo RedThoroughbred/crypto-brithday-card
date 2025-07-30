@@ -16,6 +16,53 @@ import type {
   DashboardChainListResponse
 } from '@/types/dashboard';
 
+// Profile types
+export interface UserProfile {
+  wallet_address: string;
+  display_name: string | null;
+  bio: string | null;
+  favorite_location: string | null;
+  is_public_profile: boolean;
+  member_since: string;
+  last_activity: string | null;
+}
+
+export interface UserProfileUpdate {
+  display_name?: string | null;
+  bio?: string | null;
+  favorite_location?: string | null;
+  is_public_profile?: boolean;
+}
+
+export interface NotificationPreferences {
+  email_notifications: boolean;
+  gift_notifications: boolean;
+  marketing_emails: boolean;
+}
+
+export interface NotificationPreferencesUpdate {
+  email_notifications?: boolean;
+  gift_notifications?: boolean;
+  marketing_emails?: boolean;
+}
+
+export interface UserAchievement {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  earned: boolean;
+  earned_date: string | null;
+  progress?: number;
+}
+
+export interface UserAchievements {
+  achievements: UserAchievement[];
+  total_earned: number;
+  total_available: number;
+  completion_percentage: number;
+}
+
 // API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_PREFIX = '/api/v1';
@@ -524,6 +571,39 @@ export const dashboardAPI = {
     if (options?.limit !== undefined) params.limit = options.limit.toString();
     
     return apiClient.get('dashboard/chains/received', params);
+  },
+};
+
+// Profile API functions
+export const profileAPI = {
+  // Authentication (shared with other APIs)
+  setAuthToken: (token: string | null) => {
+    apiClient.setAuthToken(token);
+  },
+
+  // Get user profile
+  getProfile: async (): Promise<UserProfile> => {
+    return apiClient.get('profile');
+  },
+
+  // Update user profile
+  updateProfile: async (profileData: UserProfileUpdate): Promise<UserProfile> => {
+    return apiClient.put('profile', profileData);
+  },
+
+  // Get notification preferences
+  getPreferences: async (): Promise<NotificationPreferences> => {
+    return apiClient.get('profile/preferences');
+  },
+
+  // Update notification preferences
+  updatePreferences: async (preferences: NotificationPreferencesUpdate): Promise<NotificationPreferences> => {
+    return apiClient.put('profile/preferences', preferences);
+  },
+
+  // Get user achievements
+  getAchievements: async (): Promise<UserAchievements> => {
+    return apiClient.get('profile/achievements');
   },
 };
 

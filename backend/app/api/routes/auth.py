@@ -33,7 +33,7 @@ from app.schemas.auth import (
 from app.services.web3_auth import web3_auth_service
 from app.core.config import settings
 from app.core.security import create_access_token, ALGORITHM
-from app.crud import user as user_crud
+from app.crud import user_crud
 from app.core.database import get_db
 from app.schemas.user import UserCreate
 from sqlalchemy.ext.asyncio import AsyncSession

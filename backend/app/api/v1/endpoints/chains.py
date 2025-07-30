@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.crud.crud_chain import crud_chain, crud_chain_claim
-from app.crud.crud_user import user
+from app.crud.crud_user import user_crud
 from app.schemas.chain import (
     ChainCreate,
     ChainResponse,
@@ -35,7 +35,7 @@ async def create_chain(
     """
     try:
         # Get the user record
-        user_record = await user.get_by_wallet_address(db, wallet_address=current_user_address)
+        user_record = await user_crud.get_by_wallet_address(db, wallet_address=current_user_address)
         if not user_record:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

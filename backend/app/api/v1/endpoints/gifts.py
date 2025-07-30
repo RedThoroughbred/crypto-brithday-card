@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.api.routes.auth import get_current_user_from_token
-from app.crud import gift as gift_crud, user as user_crud
+from app.crud import gift as gift_crud, user_crud
 from app.schemas.gift import GiftCreate, GiftRead, GiftUpdate
 from app.models.gift import GiftStatus, UnlockType
 
