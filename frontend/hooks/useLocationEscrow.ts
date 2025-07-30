@@ -75,8 +75,6 @@ export function useLocationEscrow() {
 
   // Function to create a new gift
   const createGift = async (params: CreateGiftParams) => {
-    console.log('createGift called with params:', params);
-    console.log('Wallet address:', address);
     
     if (!address) {
       setCreateError('Wallet not connected');
@@ -97,13 +95,7 @@ export function useLocationEscrow() {
 
       if (params.currency === 'GGT') {
         // GGT Token Gift Flow - Proper two-step process
-        console.log('Creating GGT token gift...');
         const giftAmount = parseUnits(params.amount, GGT_TOKEN.decimals);
-
-        // Step 1: Approve the GGT escrow contract to spend tokens
-        console.log('Step 1: Approving GGT tokens...');
-        console.log('Amount to approve:', giftAmount.toString());
-        console.log('Escrow address:', GGT_ESCROW_ADDRESS);
         
         setGiftCreationStep('approving');
         
@@ -114,8 +106,6 @@ export function useLocationEscrow() {
             functionName: 'approve',
             args: [GGT_ESCROW_ADDRESS, giftAmount],
           });
-          
-          console.log('Approval transaction triggered, waiting for confirmation...');
         } catch (approvalError: any) {
           console.error('Approval transaction failed:', approvalError);
           setCreateError(`Approval failed: ${approvalError.message}`);
@@ -128,7 +118,6 @@ export function useLocationEscrow() {
 
       } else {
         // ETH Gift Flow (existing)
-        console.log('Creating ETH gift...');
         const giftAmount = parseEther(params.amount);
 
         await writeGiftCreation({
@@ -147,8 +136,6 @@ export function useLocationEscrow() {
           value: giftAmount,
         });
       }
-
-      console.log('Gift creation transaction sent');
     } catch (error: any) {
       console.error('Error creating gift:', error);
       setCreateError(error.message || 'Failed to create gift');
@@ -164,8 +151,6 @@ export function useLocationEscrow() {
 
     const contractLat = coordinateToContract(latitude);
     const contractLon = coordinateToContract(longitude);
-
-    console.log('Claiming gift:', { giftId, latitude, longitude, isGGT });
 
     await writeGiftCreation({
       address: isGGT ? GGT_ESCROW_ADDRESS : LOCATION_ESCROW_ADDRESS,
@@ -190,7 +175,6 @@ export function useLocationEscrow() {
     if (isApprovalSuccess && giftCreationStep === 'approving' && currentGiftParams) {
       const proceedWithGiftCreation = async () => {
         try {
-          console.log('Step 2: Approval confirmed, creating GGT gift...');
           setGiftCreationStep('creating');
           
           const contractLat = coordinateToContract(currentGiftParams.latitude);
@@ -215,8 +199,6 @@ export function useLocationEscrow() {
               giftAmount,
             ],
           });
-          
-          console.log('Gift creation transaction sent');
         } catch (error: any) {
           console.error('Error in step 2 (gift creation):', error);
           setCreateError(error.message || 'Failed to create gift after approval');
@@ -246,7 +228,6 @@ export function useLocationEscrow() {
             // The gift ID is in the first indexed parameter (topics[1])
             const giftIdHex = giftCreatedLog.topics[1];
             giftId = parseInt(giftIdHex, 16);
-            console.log('Parsed gift ID from receipt:', giftId);
           } else {
             console.warn('Could not find GiftCreated event in receipt, using fallback');
             giftId = Date.now(); // Fallback
@@ -271,7 +252,6 @@ export function useLocationEscrow() {
               };
 
               await giftAPI.createGift(giftData);
-              console.log('Single gift stored in backend successfully');
             } else {
               console.warn('Authentication failed, gift not stored in backend');
             }

@@ -99,14 +99,10 @@ export default function CreateGiftPage() {
     }
   }, [selectedLocation, setValue, trigger]);
   
-  // Debug form state
-  console.log('=== FORM STATE DEBUG ===');
-  console.log('watchedValues:', JSON.stringify(watchedValues, null, 2));
-  console.log('errors:', errors);
-  console.log('isValid:', isValid);
-  console.log('isValidating:', isValidating);
-  console.log('selectedLocation:', selectedLocation);
-  console.log('currentStep:', currentStep);
+  // Debug form state (development only)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Form state:', { isValid, currentStep, unlockType: watchedValues.unlockType });
+  }
 
   // Show modal when gift is successfully created
   useEffect(() => {
@@ -139,20 +135,11 @@ export default function CreateGiftPage() {
   };
 
   const onSubmit = async (data: CreateGiftForm) => {
-    console.log('=== FORM SUBMITTED ===');
-    console.log('Form data:', data);
-    console.log('Selected location:', selectedLocation);
-    console.log('Is valid:', isValid);
-    console.log('Is creating:', isCreating);
-    console.log('Is tx success:', isTxSuccess);
-    
     // Only require location for GPS unlock type
     if (data.unlockType === 'GPS' && !selectedLocation) {
       console.error('No location selected for GPS gift');
       return;
     }
-
-    console.log('Creating gift:', data);
     
     try {
       await createGift({
@@ -834,14 +821,6 @@ export default function CreateGiftPage() {
                   <Button 
                     type="submit" 
                     disabled={!isValid || (watchedValues.unlockType === 'GPS' && !selectedLocation) || isCreating || isTxSuccess}
-                    onClick={() => {
-                      console.log('=== BUTTON CLICKED ===');
-                      console.log('isValid:', isValid);
-                      console.log('selectedLocation:', selectedLocation);
-                      console.log('isCreating:', isCreating);
-                      console.log('isTxSuccess:', isTxSuccess);
-                      console.log('Button disabled:', !isValid || (watchedValues.unlockType === 'GPS' && !selectedLocation) || isCreating || isTxSuccess);
-                    }}
                   >
                     {isCreating ? (
                       <>
