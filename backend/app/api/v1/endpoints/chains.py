@@ -139,6 +139,8 @@ async def get_chain(
                 "longitude": step.longitude,
                 "radius": step.radius,
                 "step_value": step.step_value,
+                "reward_content": step.reward_content,
+                "reward_content_type": step.reward_content_type,
                 "is_completed": step.is_completed,
                 "completed_at": step.completed_at,
                 "created_at": step.created_at
@@ -153,51 +155,60 @@ async def get_chain_by_blockchain_id(
     db: AsyncSession = Depends(get_db)
 ):
     """Get a chain by its blockchain chain ID"""
-    chain = await crud_chain.get_chain_by_blockchain_id(db=db, blockchain_chain_id=blockchain_chain_id)
-    
-    if not chain:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Chain not found"
+    try:
+        # Use the CRUD method that properly loads steps
+        chain = await crud_chain.get_chain_by_blockchain_id_with_steps(db=db, blockchain_chain_id=blockchain_chain_id)
+        
+        if not chain:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chain not found"
+            )
+        
+        return ChainResponse(
+            id=str(chain.id),
+            chain_title=chain.chain_title,
+            chain_description=chain.chain_description,
+            giver_address=chain.giver_address,
+            recipient_address=chain.recipient_address,
+            recipient_email=chain.recipient_email,
+            total_value=chain.total_value,
+            total_steps=chain.total_steps,
+            current_step=chain.current_step,
+            is_completed=chain.is_completed,
+            is_expired=chain.is_expired,
+            expiry_date=chain.expiry_date,
+            blockchain_chain_id=chain.blockchain_chain_id,
+            transaction_hash=chain.transaction_hash,
+            created_at=chain.created_at,  
+            completed_at=chain.completed_at,
+            steps=[
+                {
+                    "id": str(step.id),
+                    "chain_id": str(step.chain_id),
+                    "step_index": step.step_index,
+                    "step_title": step.step_title,
+                    "step_message": step.step_message,
+                    "unlock_type": step.unlock_type,
+                    "unlock_data": step.unlock_data,
+                    "latitude": step.latitude,
+                    "longitude": step.longitude,
+                    "radius": step.radius,
+                    "step_value": step.step_value,
+                    "reward_content": step.reward_content,
+                    "reward_content_type": step.reward_content_type,
+                    "is_completed": step.is_completed,
+                    "completed_at": step.completed_at,
+                    "created_at": step.created_at
+                }
+                for step in chain.steps
+            ]
         )
-    
-    return ChainResponse(
-        id=chain.id,
-        chain_title=chain.chain_title,
-        chain_description=chain.chain_description,
-        giver_address=chain.giver_address,
-        recipient_address=chain.recipient_address,
-        recipient_email=chain.recipient_email,
-        total_value=chain.total_value,
-        total_steps=chain.total_steps,
-        current_step=chain.current_step,
-        is_completed=chain.is_completed,
-        is_expired=chain.is_expired,
-        expiry_date=chain.expiry_date,
-        blockchain_chain_id=chain.blockchain_chain_id,
-        transaction_hash=chain.transaction_hash,
-        created_at=chain.created_at,
-        completed_at=chain.completed_at,
-        steps=[
-            {
-                "id": step.id,
-                "chain_id": step.chain_id,
-                "step_index": step.step_index,
-                "step_title": step.step_title,
-                "step_message": step.step_message,
-                "unlock_type": step.unlock_type,
-                "unlock_data": step.unlock_data,
-                "latitude": step.latitude,
-                "longitude": step.longitude,
-                "radius": step.radius,
-                "step_value": step.step_value,
-                "is_completed": step.is_completed,
-                "completed_at": step.completed_at,
-                "created_at": step.created_at
-            }
-            for step in chain.steps
-        ]
-    )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get chain: {str(e)}"
+        )
 
 @router.put("/{chain_id}/blockchain", response_model=ChainResponse)
 async def update_chain_blockchain_data(
@@ -269,7 +280,7 @@ async def list_chains(
     chain_responses = []
     for chain in chains:
         chain_responses.append(ChainResponse(
-            id=chain.id,
+            id=str(chain.id),
             chain_title=chain.chain_title,
             chain_description=chain.chain_description,
             giver_address=chain.giver_address,
@@ -284,7 +295,8 @@ async def list_chains(
             blockchain_chain_id=chain.blockchain_chain_id,
             transaction_hash=chain.transaction_hash,
             created_at=chain.created_at,
-            completed_at=chain.completed_at
+            completed_at=chain.completed_at,
+            steps=[]  # Empty for list view - use individual chain endpoint for full details
         ))
     
     return ChainListResponse(

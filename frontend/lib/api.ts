@@ -22,6 +22,8 @@ export interface ChainStep {
   longitude?: number;
   radius: number;
   step_value: string;
+  reward_content?: string;
+  reward_content_type?: string;
 }
 
 export interface ChainStepResponse extends ChainStep {
@@ -170,7 +172,13 @@ class APIClient {
       let errorDetail = 'Unknown error';
       try {
         const errorData = await response.json();
+        console.error('API Error Response:', errorData);
         errorDetail = errorData.detail || errorData.message || 'Request failed';
+        
+        // Handle validation errors (422)
+        if (response.status === 422 && Array.isArray(errorData.detail)) {
+          errorDetail = errorData.detail.map((err: any) => `${err.loc?.join('.')}: ${err.msg}`).join(', ');
+        }
       } catch {
         errorDetail = response.statusText || `HTTP ${response.status}`;
       }
@@ -361,19 +369,36 @@ export const giftAPI = {
   },
 };
 
+// Map frontend unlock types to backend integer values
+const mapUnlockTypeToInt = (unlockType: string): number => {
+  const mapping: Record<string, number> = {
+    'gps': 0,
+    'video': 1, 
+    'image': 2,
+    'markdown': 3,
+    'quiz': 4,
+    'password': 5,
+    'url': 6,
+  };
+  return mapping[unlockType?.toLowerCase()] ?? 0; // Default to GPS
+};
+
 // Utility functions for data transformation
 export const chainUtils = {
   // Convert frontend step data to API format
-  prepareStepForAPI: (step: any): ChainStep => ({
-    step_index: step.index || step.step_index,
-    step_title: step.title || step.step_title,
-    step_message: step.message || step.clue || step.step_message,
-    unlock_type: step.type || step.unlock_type,
-    unlock_data: step.unlockData || step.unlock_data,
-    latitude: step.location?.lat || step.latitude,
-    longitude: step.location?.lng || step.longitude,
-    radius: step.radius || 50,
-    step_value: step.value?.toString() || step.step_value,
+  prepareStepForAPI: (step: any, stepIndex?: number, totalValue?: string): ChainStep => ({
+    step_index: stepIndex !== undefined ? stepIndex : (step.order || step.index || step.step_index || 0),
+    step_title: step.title || step.step_title || `Step ${stepIndex + 1}`,
+    step_message: step.message || step.clue || step.step_message || '',
+    unlock_type: mapUnlockTypeToInt(step.unlockType || step.type || step.unlock_type || 'gps'),
+    unlock_data: step.unlockData || step.unlock_data || {},
+    // Try multiple sources for GPS coordinates
+    latitude: step.unlockData?.latitude || step.latitude || step.location?.lat,
+    longitude: step.unlockData?.longitude || step.longitude || step.location?.lng,
+    radius: step.unlockData?.radius || step.radius || 50,
+    step_value: step.value?.toString() || step.step_value || (totalValue ? totalValue : '0.1'), // Use provided value or totalValue
+    reward_content: step.rewardContent,
+    reward_content_type: step.rewardContentType,
   }),
 
   // Convert API step data to frontend format
@@ -391,23 +416,36 @@ export const chainUtils = {
     } : undefined,
     radius: step.radius,
     value: step.step_value,
+    rewardContent: step.reward_content,
+    rewardContentType: step.reward_content_type,
     isCompleted: step.is_completed,
     completedAt: step.completed_at,
     createdAt: step.created_at,
   }),
 
   // Convert frontend chain data to API format
-  prepareChainForAPI: (chainData: any): ChainCreate => ({
-    chain_title: chainData.title || chainData.chain_title,
-    chain_description: chainData.description || chainData.chain_description,
-    recipient_address: chainData.recipientAddress || chainData.recipient_address,
-    recipient_email: chainData.recipientEmail || chainData.recipient_email,
-    total_value: chainData.totalValue?.toString() || chainData.total_value,
-    expiry_days: chainData.expiryDays || chainData.expiry_days || 30,
-    steps: chainData.steps?.map(chainUtils.prepareStepForAPI) || [],
-    blockchain_chain_id: chainData.blockchainChainId || chainData.blockchain_chain_id,
-    transaction_hash: chainData.transactionHash || chainData.transaction_hash,
-  }),
+  prepareChainForAPI: (chainData: any): ChainCreate => {
+    const totalValue = chainData.totalValue?.toString() || chainData.total_value;
+    const steps = chainData.steps || [];
+    
+    return {
+      chain_title: chainData.title || chainData.chain_title,
+      chain_description: chainData.description || chainData.chain_description,
+      recipient_address: chainData.recipientAddress || chainData.recipient_address,
+      recipient_email: chainData.recipientEmail || chainData.recipient_email,
+      total_value: totalValue,
+      expiry_days: chainData.expiryDays || chainData.expiry_days || 30,
+      steps: steps.map((step: any, index: number) => {
+        // Calculate step value by dividing total value evenly among steps
+        const stepValue = totalValue && steps.length > 0 
+          ? (parseFloat(totalValue) / steps.length).toFixed(18) 
+          : '0.1';
+        return chainUtils.prepareStepForAPI(step, index, stepValue);
+      }),
+      blockchain_chain_id: chainData.blockchainChainId || chainData.blockchain_chain_id,
+      transaction_hash: chainData.transactionHash || chainData.transaction_hash,
+    };
+  },
 
   // Convert API chain to frontend format
   formatChainFromAPI: (chain: ChainResponse) => ({

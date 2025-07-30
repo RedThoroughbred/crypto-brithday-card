@@ -66,4 +66,4 @@ class GiftChain(Base):
     completed_at = Column(DateTime(timezone=True), nullable=True)
 
     def __repr__(self):
-        return f"<GiftChain(id={self.id}, chain_id={self.chain_id}, title='{self.title}')>"
+        return f"<GiftChain(id={self.id}, chain_id={self.chain_id}, title='{self.chain_title}')>"

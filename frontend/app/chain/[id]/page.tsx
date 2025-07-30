@@ -3,20 +3,28 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { Clock, Gift, CheckCircle, Lock, Coins } from 'lucide-react';
+import { Clock, Gift, CheckCircle, Lock, Coins, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { MainLayout } from '@/components/layout/main-layout';
 import { useToast } from '@/hooks/use-toast';
 import { GGT_CHAIN_ESCROW_ADDRESS, GGT_CHAIN_ESCROW_ABI, coordinateToContract } from '@/lib/contracts';
 import { StepUnlockDisplay } from '@/components/chain/step-unlock-display';
 import { prepareUnlockData, verifyUnlock } from '@/lib/unlock-types';
+import { chainAPI } from '@/lib/api';
+import { motion } from 'framer-motion';
 
 export default function GGTChainPage() {
   const params = useParams();
   const chainId = params.id as string;
   const { address, isConnected } = useAccount();
   const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [claimedStepIndex, setClaimedStepIndex] = useState<number | null>(null);
+  const [showRewardModal, setShowRewardModal] = useState(false);
+  const [rewardContent, setRewardContent] = useState<{content: string, type: string} | null>(null);
+  const [locallyCompletedSteps, setLocallyCompletedSteps] = useState<Set<number>>(new Set());
+  const [backendChainData, setBackendChainData] = useState<any>(null);
   const { toast } = useToast();
   
   // Read chain data
@@ -35,7 +43,7 @@ export default function GGTChainPage() {
     args: chainId ? [BigInt(chainId)] : undefined,
   });
 
-  // Debug steps data when it loads
+  // Debug steps data when it loads and fetch backend data
   useEffect(() => {
     if (stepsData) {
       console.log('Steps data loaded:', stepsData);
@@ -49,7 +57,22 @@ export default function GGTChainPage() {
         });
       });
     }
-  }, [stepsData]);
+    
+    // Also fetch backend data for reward content
+    if (chainId) {
+      const fetchBackendData = async () => {
+        try {
+          console.log('Fetching backend data for chainId:', chainId);
+          const backendChain = await chainAPI.getChainByBlockchainId(parseInt(chainId));
+          console.log('Backend chain data loaded:', backendChain);
+          setBackendChainData(backendChain);
+        } catch (error) {
+          console.error('Failed to fetch backend chain data:', error);
+        }
+      };
+      fetchBackendData();
+    }
+  }, [stepsData, chainId]);
 
   // Claim step transaction
   const { 
@@ -82,16 +105,51 @@ export default function GGTChainPage() {
 
   // Handle claim transaction status
   useEffect(() => {
-    if (isClaimConfirmed && claimHash) {
+    if (isClaimConfirmed && claimHash && claimedStepIndex !== null) {
+      // Mark this step as locally completed immediately
+      setLocallyCompletedSteps(prev => new Set(prev).add(claimedStepIndex));
+      
       toast({
-        title: 'Step Claimed!',
+        title: '🎉 Step Claimed!',
         description: 'You successfully claimed this step of the chain.',
       });
       console.log('Step claimed! Transaction hash:', claimHash);
-      // Refresh chain data after successful claim
-      refetch();
+      
+      // Try to fetch reward content from backend
+      const fetchRewardContent = async () => {
+        try {
+          if (!chainId) return;
+          
+          console.log('Fetching reward content for chain:', chainId, 'step:', claimedStepIndex);
+          const backendChain = await chainAPI.getChainByBlockchainId(parseInt(chainId));
+          console.log('Backend chain data:', backendChain);
+          
+          if (backendChain.steps) {
+            const claimedStep = backendChain.steps.find((step: any) => step.step_index === claimedStepIndex);
+            console.log('Found claimed step:', claimedStep);
+            
+            if (claimedStep?.reward_content && claimedStep?.reward_content_type) {
+              console.log('Setting reward content:', claimedStep.reward_content, claimedStep.reward_content_type);
+              setRewardContent({
+                content: claimedStep.reward_content,
+                type: claimedStep.reward_content_type
+              });
+              setShowRewardModal(true);
+              // Don't refresh - let UI naturally update
+            } else {
+              console.log('No reward content found for this step');
+              // Don't refresh - let UI naturally update
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch reward content:', error);
+          // Don't refresh - let UI naturally update
+        }
+      };
+      
+      fetchRewardContent();
     }
-  }, [isClaimConfirmed, claimHash, toast, refetch]);
+  }, [isClaimConfirmed, claimHash, claimedStepIndex, chainId, toast]);
 
   useEffect(() => {
     if (claimError) {
@@ -141,6 +199,9 @@ export default function GGTChainPage() {
         description: 'Please confirm the transaction in your wallet.',
       });
 
+      // Track which step is being claimed
+      setClaimedStepIndex(stepIndex);
+
       // Prepare unlock data for contract
       const { lat, lng, unlockBytes } = prepareUnlockData(unlockType, step, unlockData);
 
@@ -158,6 +219,7 @@ export default function GGTChainPage() {
       });
     } catch (error) {
       console.error('Error claiming step:', error);
+      setClaimedStepIndex(null); // Reset on error
       toast({
         title: 'Transaction Failed',
         description: 'Failed to claim step. Please try again.',
@@ -323,14 +385,32 @@ export default function GGTChainPage() {
                   </CardContent>
                 </Card>
               ) : Array.isArray(stepsData) && stepsData.map((step: any, index: number) => {
-                const isCurrentStep = index === currentStep && !isCompleted;
-                const isCompletedStep = step.completed;
-                const isUnlocked = isCurrentStep || isCompletedStep;
+                // Get backend step data for completion status and rewards
+                const backendStep = backendChainData?.steps?.find((s: any) => s.step_index === index);
                 
-                // Only show the current step or completed steps to recipients
-                if (!isRecipient || (!isUnlocked && !isCompletedStep)) {
+                // Use multiple sources to determine completion status
+                const isCompletedFromContract = index < currentStep;
+                const isCompletedFromBackend = backendStep?.is_completed || false;
+                const isCompletedLocally = locallyCompletedSteps.has(index);
+                const isCompletedStep = isCompletedFromContract || isCompletedFromBackend || isCompletedLocally;
+                
+                const isCurrentStep = index === currentStep && !isCompletedStep;
+                const isUnlocked = index <= currentStep || isCompletedStep;
+                
+                console.log(`🔍 Step ${index} states:`, {
+                  isCurrentStep,
+                  isCompletedStep,
+                  isCompletedFromContract,
+                  isCompletedFromBackend,
+                  isCompletedLocally,
+                  isUnlocked,
+                  currentStep,
+                  hasRewardContent: backendStep?.reward_content ? true : false
+                });
+                
+                if (!isUnlocked) {
                   return (
-                    <Card key={index} className="border-gray-200">
+                    <Card key={index} className="border-gray-200 opacity-50">
                       <CardContent className="p-6">
                         <div className="flex items-center space-x-4">
                           <div className="w-10 h-10 rounded-full flex items-center justify-center font-semibold bg-gray-200 text-gray-500">
@@ -351,8 +431,16 @@ export default function GGTChainPage() {
                     key={index}
                     step={step}
                     stepIndex={index}
-                    isUnlocked={isCompletedStep}
-                    onUnlock={(unlockData) => handleClaimStep(index, unlockData)}
+                    isUnlocked={true} // Always show content for unlocked steps
+                    isCompleted={isCompletedStep}
+                    rewardContent={backendStep?.reward_content}
+                    rewardContentType={backendStep?.reward_content_type}
+                    onUnlock={(unlockData) => {
+                      // Only allow claiming for current step
+                      if (isCurrentStep && isRecipient) {
+                        handleClaimStep(index, unlockData);
+                      }
+                    }}
                     isUnlocking={isClaimPending || isClaimConfirming}
                     currentLocation={currentLocation || undefined}
                   />
@@ -390,6 +478,75 @@ export default function GGTChainPage() {
           </div>
         </div>
       </div>
+
+      {/* Bonus Reward Modal */}
+      {showRewardModal && rewardContent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4"
+          >
+            <Card className="border-2 border-green-200 bg-green-50">
+              <CardHeader className="text-center">
+                <CardTitle className="text-green-800 flex items-center justify-center gap-2">
+                  <Sparkles className="h-6 w-6" />
+                  🎉 Bonus Reward Unlocked!
+                  <Sparkles className="h-6 w-6" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {rewardContent.type === 'message' && (
+                  <div className="bg-white p-4 rounded-lg border border-green-200">
+                    <h4 className="font-medium text-green-800 mb-2">Secret Message:</h4>
+                    <p className="text-gray-700">{rewardContent.content}</p>
+                  </div>
+                )}
+                
+                {rewardContent.type === 'url' && (
+                  <div className="bg-white p-4 rounded-lg border border-green-200">
+                    <h4 className="font-medium text-green-800 mb-2">Special Link:</h4>
+                    <a 
+                      href={rewardContent.content} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline break-all"
+                    >
+                      {rewardContent.content}
+                    </a>
+                  </div>
+                )}
+                
+                {rewardContent.type === 'file' && (
+                  <div className="bg-white p-4 rounded-lg border border-green-200">
+                    <h4 className="font-medium text-green-800 mb-2">File Download:</h4>
+                    <a 
+                      href={rewardContent.content} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline break-all"
+                    >
+                      📎 Download File
+                    </a>
+                  </div>
+                )}
+                
+                <div className="flex justify-center pt-4">
+                  <Button 
+                    onClick={() => {
+                      setShowRewardModal(false);
+                      // Don't refresh - let the UI naturally update
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    Awesome! ✨
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      )}
     </MainLayout>
   );
 }

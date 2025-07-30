@@ -61,6 +61,10 @@ class ChainStep(Base):
     # Reward
     step_value = Column(String, nullable=False)  # GGT amount as string (API compatibility)
     
+    # Bonus reward content (revealed WITH the crypto funds after unlock)
+    reward_content = Column(Text, nullable=True)  # URL, file link, or secret message
+    reward_content_type = Column(String(50), nullable=True)  # 'url', 'file', 'message', or None
+    
     # Status
     is_completed = Column(Boolean, default=False)
     is_unlocked = Column(Boolean, default=False)

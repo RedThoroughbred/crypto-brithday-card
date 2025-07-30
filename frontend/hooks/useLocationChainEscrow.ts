@@ -1,5 +1,6 @@
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseEther } from 'viem'
+import { useState, useEffect } from 'react'
 import { 
   LOCATION_CHAIN_ESCROW_ADDRESS, 
   LOCATION_CHAIN_ESCROW_ABI,
@@ -8,6 +9,7 @@ import {
   createMetadataHash,
   createClueHash
 } from '@/lib/contracts'
+import { chainAPI } from '@/lib/api'
 
 export interface ChainStep {
   id: string;
@@ -92,8 +94,8 @@ export function useLocationChainEscrow() {
   }
 }
 
-// Hook to read chain data
-export function useChainData(chainId: number | undefined) {
+// Hook to read chain data from smart contract only (legacy)
+export function useChainDataFromContract(chainId: number | undefined) {
   return useReadContract({
     address: LOCATION_CHAIN_ESCROW_ADDRESS,
     abi: LOCATION_CHAIN_ESCROW_ABI,
@@ -103,6 +105,44 @@ export function useChainData(chainId: number | undefined) {
       enabled: chainId !== undefined
     }
   })
+}
+
+// Enhanced hook to read chain data from backend API (includes reward content)
+export function useChainData(chainId: number | undefined) {
+  const [data, setData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!chainId) return;
+
+    const fetchChainData = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        // Try to fetch from backend API first (includes reward content)
+        const backendChain = await chainAPI.getChainByBlockchainId(chainId);
+        setData(backendChain);
+      } catch (backendError) {
+        console.warn('Failed to fetch from backend, falling back to contract:', backendError);
+        
+        // Fallback to contract-only data if backend fails
+        try {
+          // This would need to be implemented properly, but for now just set error
+          setError(new Error('Chain not found in backend'));
+        } catch (contractError) {
+          setError(contractError as Error);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchChainData();
+  }, [chainId]);
+
+  return { data, isLoading, error };
 }
 
 // Hook for claiming chain steps

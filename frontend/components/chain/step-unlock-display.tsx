@@ -39,6 +39,9 @@ interface StepUnlockDisplayProps {
   onUnlock: (unlockData: any) => void;
   isUnlocking?: boolean;
   currentLocation?: { lat: number; lng: number };
+  isCompleted?: boolean;
+  rewardContent?: string;
+  rewardContentType?: string;
 }
 
 // Map numeric step types to unlock types
@@ -55,7 +58,10 @@ export function StepUnlockDisplay({
   isUnlocked, 
   onUnlock, 
   isUnlocking = false,
-  currentLocation 
+  currentLocation,
+  isCompleted = false,
+  rewardContent,
+  rewardContentType
 }: StepUnlockDisplayProps) {
   const [passwordInput, setPasswordInput] = useState('');
   const [quizAnswer, setQuizAnswer] = useState('');
@@ -98,6 +104,80 @@ export function StepUnlockDisplay({
       case 'url': return 'Visit website to unlock';
       default: return 'Complete task to unlock';
     }
+  };
+
+  const renderCompletedContent = () => {
+    return (
+      <div className="space-y-4">
+        {/* Show the original clue/message for completed steps */}
+        {step.stepMessage && step.stepMessage !== '0x0000000000000000000000000000000000000000000000000000000000000000' && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-start gap-2">
+              <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-2 h-2 bg-white rounded-full"></div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-green-800 mb-1">Completed Challenge:</p>
+                <p className="text-sm text-green-700">{step.stepTitle || `Step ${stepIndex + 1}`}</p>
+                {step.stepMessage && (
+                  <p className="text-xs text-green-600 mt-2">💡 Clue: {step.stepMessage}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Show bonus reward content if available */}
+        {rewardContent && rewardContentType && (
+          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-start gap-2">
+              <div className="text-xl">🎁</div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-orange-800 mb-2">Bonus Reward:</p>
+                
+                {rewardContentType === 'message' && (
+                  <div className="bg-white rounded-lg border border-orange-200 p-3">
+                    <p className="text-sm text-gray-700">{rewardContent}</p>
+                  </div>
+                )}
+                
+                {rewardContentType === 'url' && (
+                  <div className="bg-white rounded-lg border border-orange-200 p-3">
+                    <a 
+                      href={rewardContent} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-800 underline break-all"
+                    >
+                      🔗 {rewardContent}
+                    </a>
+                  </div>
+                )}
+                
+                {rewardContentType === 'file' && (
+                  <div className="bg-white rounded-lg border border-orange-200 p-3">
+                    <a 
+                      href={rewardContent} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-800 underline"
+                    >
+                      📎 Download File
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Show step value achieved */}
+        <div className="flex items-center justify-between text-sm text-green-600">
+          <span>✅ Step completed</span>
+          <span className="font-mono">{(Number(step.stepValue) / 1e18).toFixed(4)} ETH claimed</span>
+        </div>
+      </div>
+    );
   };
 
   const renderUnlockContent = () => {
@@ -368,14 +448,20 @@ export function StepUnlockDisplay({
   };
 
   return (
-    <Card className={isUnlocked ? 'border-green-500 bg-green-50/50' : ''}>
+    <Card className={
+      isCompleted ? 'border-green-500 bg-gradient-to-r from-green-50 to-emerald-50' : 
+      isUnlocked ? 'border-cyan-500 bg-cyan-50/50' : 
+      'border-gray-300'
+    }>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-full ${
-              isUnlocked ? 'bg-green-100 text-green-600' : 'bg-muted'
+              isCompleted ? 'bg-green-500 text-white' :
+              isUnlocked ? 'bg-cyan-100 text-cyan-600' : 
+              'bg-muted'
             }`}>
-              {getUnlockIcon(unlockType)}
+              {isCompleted ? '✓' : getUnlockIcon(unlockType)}
             </div>
             <div>
               <CardTitle className="text-lg">Step {stepIndex + 1}</CardTitle>
@@ -385,19 +471,22 @@ export function StepUnlockDisplay({
             </div>
           </div>
           
-          {isUnlocked && (
+          {isCompleted && (
             <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
-              Unlocked
+              ✅ Completed
+            </Badge>
+          )}
+          {isUnlocked && !isCompleted && (
+            <Badge variant="outline" className="bg-cyan-100 text-cyan-700 border-cyan-300">
+              🔓 Current
             </Badge>
           )}
         </div>
       </CardHeader>
       
-      {!isUnlocked && (
-        <CardContent>
-          {renderUnlockContent()}
-        </CardContent>
-      )}
+      <CardContent>
+        {isCompleted ? renderCompletedContent() : renderUnlockContent()}
+      </CardContent>
     </Card>
   );
 }

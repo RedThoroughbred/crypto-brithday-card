@@ -208,17 +208,21 @@ export default function CreateChainPage() {
             });
             
             console.log('Prepared chain data for API:', chainData);
+            console.log('Chain steps with rewards:', chainData.steps.map((step: any) => ({
+              index: step.step_index,
+              title: step.step_title,
+              reward_content: step.reward_content,
+              reward_content_type: step.reward_content_type
+            })));
             
-            // TODO: Enable when authentication is fixed
-            // const savedChain = await chainAPI.createChain(chainData);
-            // console.log('Chain saved to backend:', savedChain);
+            // Enable backend storage for bonus rewards
+            const savedChain = await chainAPI.createChain(chainData);
+            console.log('Chain saved to backend:', savedChain);
             
-            console.log('Backend storage temporarily disabled - chain stored on blockchain only');
-            
-            // toast({
-            //   title: 'Chain Saved!',
-            //   description: 'Your chain has been saved to the database for easy access.',
-            // });
+            toast({
+              title: 'Chain Saved!',
+              description: 'Your chain has been saved to the database for easy access.',
+            });
           } catch (error) {
             console.error('Failed to save chain to backend:', error);
             // Don't fail the entire flow if backend save fails
@@ -457,10 +461,16 @@ export default function CreateChainPage() {
       return;
     }
     
-    // Validate that GPS steps have locations
-    const gpsStepsWithoutLocation = chainSteps.filter(step => 
-      step.unlockType === 'gps' && (!step.unlockData?.latitude || !step.unlockData?.longitude)
-    );
+    // Validate that GPS steps have locations (check both unlockData and legacy fields)
+    const gpsStepsWithoutLocation = chainSteps.filter(step => {
+      if (step.unlockType !== 'gps') return false;
+      
+      // Check both unlockData and legacy fields for coordinates
+      const hasUnlockDataCoords = step.unlockData?.latitude && step.unlockData?.longitude;
+      const hasLegacyCoords = step.latitude && step.longitude;
+      
+      return !hasUnlockDataCoords && !hasLegacyCoords;
+    });
     if (gpsStepsWithoutLocation.length > 0) {
       toast({
         title: 'Missing Locations',

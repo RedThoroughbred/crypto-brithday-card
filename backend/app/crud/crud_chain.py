@@ -66,6 +66,8 @@ class CRUDChain(CRUDBase[GiftChain, ChainCreate, dict]):
                 longitude=step_data.longitude,
                 radius=step_data.radius,
                 step_value=step_data.step_value,
+                reward_content=step_data.reward_content,
+                reward_content_type=step_data.reward_content_type,
                 is_completed=False
             )
             db.add(step)
@@ -91,6 +93,13 @@ class CRUDChain(CRUDBase[GiftChain, ChainCreate, dict]):
     
     async def get_chain_by_blockchain_id(self, db: AsyncSession, blockchain_chain_id: int) -> Optional[GiftChain]:
         """Get a chain by its blockchain chain ID"""
+        result = await db.execute(
+            select(GiftChain).filter(GiftChain.blockchain_chain_id == blockchain_chain_id)
+        )
+        return result.scalar_one_or_none()
+    
+    async def get_chain_by_blockchain_id_with_steps(self, db: AsyncSession, blockchain_chain_id: int) -> Optional[GiftChain]:
+        """Get a chain by its blockchain chain ID with steps loaded"""
         result = await db.execute(
             select(GiftChain).options(
                 selectinload(GiftChain.steps)

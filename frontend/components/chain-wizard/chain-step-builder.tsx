@@ -28,6 +28,9 @@ export interface ChainStep {
   latitude?: number | null;
   longitude?: number | null;
   radius?: number;
+  // Bonus reward content (revealed WITH the crypto funds after unlock)
+  rewardContent?: string;
+  rewardContentType?: 'url' | 'file' | 'message' | null;
 }
 
 interface ChainStepBuilderProps {
@@ -61,7 +64,10 @@ export function ChainStepBuilder({
       // Legacy fields
       latitude: null,
       longitude: null,
-      radius: 50
+      radius: 50,
+      // Bonus reward fields
+      rewardContent: undefined,
+      rewardContentType: null
     };
     
     onStepsChange([...steps, newStep]);
@@ -332,6 +338,56 @@ export function ChainStepBuilder({
                           />
                         </div>
                         
+                        {/* Bonus Reward Section */}
+                        <div className="border-t pt-4">
+                          <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                            Bonus Reward (Optional)
+                          </Label>
+                          <p className="text-xs text-gray-500 mb-3">
+                            Additional content to reveal AFTER successful unlock (along with the crypto)
+                          </p>
+                          <div className="space-y-3">
+                            <Select
+                              value={step.rewardContentType || 'none'}
+                              onValueChange={(value) => updateStep(step.id, { 
+                                rewardContentType: value === 'none' ? null : value as any,
+                                rewardContent: value === 'none' ? undefined : step.rewardContent
+                              })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select reward type (optional)" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No additional reward</SelectItem>
+                                <SelectItem value="url">🔗 Website/Link</SelectItem>
+                                <SelectItem value="file">📎 File/Download</SelectItem>
+                                <SelectItem value="message">💬 Secret Message</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            
+                            {step.rewardContentType && (
+                              <div>
+                                {step.rewardContentType === 'message' ? (
+                                  <Textarea
+                                    value={step.rewardContent || ''}
+                                    onChange={(e) => updateStep(step.id, { rewardContent: e.target.value })}
+                                    rows={3}
+                                    placeholder="Enter the secret message to reveal after unlock..."
+                                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-geogift-500 focus:outline-none focus:ring-1 focus:ring-geogift-500"
+                                  />
+                                ) : (
+                                  <Input
+                                    type="url"
+                                    value={step.rewardContent || ''}
+                                    onChange={(e) => updateStep(step.id, { rewardContent: e.target.value })}
+                                    placeholder={step.rewardContentType === 'url' ? 'https://example.com' : 'https://example.com/file.pdf'}
+                                  />
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
                         {/* Dynamic fields based on unlock type */}
                         {step.unlockType === 'gps' && (
                           <>
@@ -347,9 +403,9 @@ export function ChainStepBuilder({
                                       onChange={(e) => updateStep(step.id, { 
                                         unlockData: {
                                           ...step.unlockData,
-                                          latitude: e.target.value ? parseFloat(e.target.value) : null 
+                                          latitude: e.target.value ? parseFloat(e.target.value) : undefined 
                                         },
-                                        latitude: e.target.value ? parseFloat(e.target.value) : null
+                                        latitude: e.target.value ? parseFloat(e.target.value) : undefined
                                       })}
                                       placeholder="Latitude"
                                     />
@@ -360,9 +416,9 @@ export function ChainStepBuilder({
                                       onChange={(e) => updateStep(step.id, { 
                                         unlockData: {
                                           ...step.unlockData,
-                                          longitude: e.target.value ? parseFloat(e.target.value) : null 
+                                          longitude: e.target.value ? parseFloat(e.target.value) : undefined 
                                         },
-                                        longitude: e.target.value ? parseFloat(e.target.value) : null
+                                        longitude: e.target.value ? parseFloat(e.target.value) : undefined
                                       })}
                                       placeholder="Longitude"
                                     />

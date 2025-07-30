@@ -27,6 +27,10 @@ class ChainStepCreate(BaseModel):
     longitude: Optional[float] = Field(default=None, ge=-180, le=180, description="Target longitude")
     radius: int = Field(default=50, ge=1, le=10000, description="Radius in meters for GPS unlock")
     step_value: str = Field(..., description="GGT value for this step (as string to avoid precision loss)")
+    
+    # Bonus reward content (revealed WITH the crypto funds after unlock)
+    reward_content: Optional[str] = Field(default=None, max_length=2000, description="Bonus content revealed after unlock")
+    reward_content_type: Optional[str] = Field(default=None, description="Type: 'url', 'file', 'message', or None")
 
     @validator('step_value')
     def validate_step_data(cls, v, values):
@@ -90,6 +94,8 @@ class ChainStepResponse(BaseModel):
     longitude: Optional[float]
     radius: int
     step_value: str
+    reward_content: Optional[str] = None
+    reward_content_type: Optional[str] = None
     is_completed: bool
     completed_at: Optional[datetime]
     created_at: datetime

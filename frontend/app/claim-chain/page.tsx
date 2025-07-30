@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useAccount } from 'wagmi';
+import { useAccount, useReadContract } from 'wagmi';
 import { motion } from 'framer-motion';
 import { MapPin, Clock, Gift, CheckCircle, Lock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,10 @@ import { Badge } from '@/components/ui/badge';
 import { MainLayout } from '@/components/layout/main-layout';
 import { useChainData, useClaimChainStep } from '@/hooks/useLocationChainEscrow';
 import { useToast } from '@/hooks/use-toast';
-import { coordinateFromContract } from '@/lib/contracts';
+import { coordinateFromContract, GGT_CHAIN_ESCROW_ADDRESS, GGT_CHAIN_ESCROW_ABI } from '@/lib/contracts';
+import { chainAPI } from '@/lib/api';
 import { Confetti, FloatingGifts } from '@/components/ui/confetti';
+import { StepUnlockDisplay } from '@/components/chain/step-unlock-display';
 
 export default function ClaimChainPage() {
   const searchParams = useSearchParams();
@@ -21,16 +23,59 @@ export default function ClaimChainPage() {
   const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [claimSuccess, setClaimSuccess] = useState(false);
+  const [claimedStepIndex, setClaimedStepIndex] = useState<number | null>(null);
+  const [showRewardModal, setShowRewardModal] = useState(false);
+  const [rewardContent, setRewardContent] = useState<{content: string, type: string} | null>(null);
+  const [backendChainData, setBackendChainData] = useState<any>(null);
+  const [locallyCompletedSteps, setLocallyCompletedSteps] = useState<Set<number>>(new Set());
   const { toast } = useToast();
   
   const { data: chainData, isLoading, error } = useChainData(chainId ? parseInt(chainId) : undefined);
+  
+  // Also read chain steps for detailed information
+  const { data: stepsData } = useReadContract({
+    address: GGT_CHAIN_ESCROW_ADDRESS,
+    abi: GGT_CHAIN_ESCROW_ABI,
+    functionName: 'getChainSteps',
+    args: chainId ? [BigInt(chainId)] : undefined,
+  });
+  
+  // Debug steps data and fetch backend data
+  useEffect(() => {
+    console.log('Chain ID:', chainId);
+    console.log('Steps data from contract:', stepsData);
+    if (stepsData) {
+      console.log('Steps count:', stepsData.length);
+      stepsData.forEach((step: any, index: number) => {
+        console.log(`Step ${index}:`, step);
+      });
+    }
+    
+    // Also fetch backend data for step messages and rewards
+    if (chainId) {
+      const fetchBackendData = async () => {
+        try {
+          console.log('Fetching backend data for chainId:', chainId);
+          const backendChain = await chainAPI.getChainByBlockchainId(parseInt(chainId));
+          console.log('Backend chain data loaded:', backendChain);
+          console.log('Backend steps:', backendChain?.steps);
+          console.log('Steps length:', backendChain?.steps?.length);
+          setBackendChainData(backendChain);
+        } catch (error) {
+          console.error('Failed to fetch backend chain data:', error);
+          console.error('Error details:', error);
+        }
+      };
+      fetchBackendData();
+    }
+  }, [chainId, stepsData]);
   const { 
     claimStep, 
     isPending: isClaimPending, 
-    isConfirming: isClaimConfirming,
-    isConfirmed: isClaimConfirmed,
+    isConfirming,
+    isConfirmed,
     error: claimError,
-    hash: claimHash
+    hash
   } = useClaimChainStep();
 
   useEffect(() => {
@@ -52,19 +97,69 @@ export default function ClaimChainPage() {
 
   // Handle claim transaction status
   useEffect(() => {
-    if (isClaimConfirmed && claimHash) {
+    console.log('Claim status effect triggered:', {
+      isConfirmed,
+      hash,
+      claimedStepIndex,
+      chainId
+    });
+    
+    if (isConfirmed && hash && claimedStepIndex !== null) {
       setClaimSuccess(true);
       setShowConfetti(true);
+      
+      // Mark this step as locally completed
+      setLocallyCompletedSteps(prev => new Set(prev).add(claimedStepIndex));
       
       toast({
         title: '🎉 Step Claimed!',
         description: 'You successfully claimed this step of the chain.',
       });
-      console.log('Step claimed! Transaction hash:', claimHash);
-      // Refresh chain data after celebration
-      setTimeout(() => window.location.reload(), 3000);
+      
+      // Try to fetch reward content and step data from backend
+      const fetchRewardContent = async () => {
+        try {
+          if (!chainId) return;
+          
+          console.log('Fetching reward content for chain:', chainId, 'step:', claimedStepIndex);
+          const backendChain = await chainAPI.getChainByBlockchainId(parseInt(chainId));
+          console.log('Backend chain data:', backendChain);
+          console.log('Chain steps:', backendChain.steps);
+          console.log('Looking for step with index:', claimedStepIndex);
+          
+          if (backendChain.steps) {
+            console.log('All steps:', backendChain.steps.map((s: any) => ({
+              index: s.step_index,
+              title: s.step_title,
+              reward_content: s.reward_content,
+              reward_content_type: s.reward_content_type
+            })));
+          }
+          
+          const claimedStep = backendChain.steps?.find((step: any) => step.step_index === claimedStepIndex);
+          console.log('Found claimed step:', claimedStep);
+          
+          if (claimedStep?.reward_content && claimedStep?.reward_content_type) {
+            console.log('Setting reward content:', claimedStep.reward_content, claimedStep.reward_content_type);
+            setRewardContent({
+              content: claimedStep.reward_content,
+              type: claimedStep.reward_content_type
+            });
+            setShowRewardModal(true);
+            // Don't reload immediately - wait for user to close modal
+          } else {
+            console.log('No reward content found for this step');
+            // No reload needed - UI will naturally update
+          }
+        } catch (error) {
+          console.error('Failed to fetch reward content:', error);
+          // No reload needed - UI will naturally update
+        }
+      };
+      
+      fetchRewardContent();
     }
-  }, [isClaimConfirmed, claimHash, toast]);
+  }, [isConfirmed, hash, claimedStepIndex, chainId, toast]);
 
   useEffect(() => {
     if (claimError) {
@@ -94,6 +189,9 @@ export default function ClaimChainPage() {
         description: 'Please confirm the transaction in your wallet.',
       });
 
+      // Track which step is being claimed
+      setClaimedStepIndex(stepIndex);
+
       await claimStep(
         parseInt(chainId),
         stepIndex,
@@ -102,6 +200,7 @@ export default function ClaimChainPage() {
       );
     } catch (error) {
       console.error('Error claiming step:', error);
+      setClaimedStepIndex(null); // Reset on error
     }
   };
 
@@ -161,9 +260,21 @@ export default function ClaimChainPage() {
   const recipient = chainData[2]; // recipient
   const isRecipient = isConnected && address?.toLowerCase() === recipient.toLowerCase();
 
+  // Debug current step and completion state
+  console.log('🔍 CHAIN STATE DEBUG:', {
+    currentStep,
+    totalSteps,
+    isCompleted,
+    locallyCompletedSteps: Array.from(locallyCompletedSteps),
+    hasBackendData: !!backendChainData,
+    hasStepsData: !!stepsData
+  });
+
   const formatEth = (wei: bigint) => {
     return (Number(wei) / 1e18).toFixed(4);
   };
+
+  console.log('🚨 MAIN RENDER - currentStep:', currentStep, 'locallyCompletedSteps:', Array.from(locallyCompletedSteps));
 
   return (
     <MainLayout>
@@ -265,7 +376,77 @@ export default function ClaimChainPage() {
 
             {/* Progress Steps */}
             <div className="space-y-4 mb-8">
-              {Array.from({ length: totalSteps }, (_, index) => {
+              {(stepsData || backendChainData?.steps) ? (
+                // Use contract step data first, fallback to backend
+                (stepsData || backendChainData?.steps || []).map((step: any, index: number) => {
+                  console.log(`RENDERING Step ${index} - currentStep: ${currentStep}, locallyCompletedSteps:`, Array.from(locallyCompletedSteps));
+                  // Get backend step data for completion status
+                  const backendStep = backendChainData?.steps?.find((s: any) => s.step_index === index);
+                  
+                  // Use multiple sources to determine completion status
+                  const isCompletedFromContract = index < currentStep;
+                  const isCompletedFromBackend = backendStep?.is_completed || false;
+                  const isCompletedLocally = locallyCompletedSteps.has(index);
+                  const isCompletedStep = isCompletedFromContract || isCompletedFromBackend || isCompletedLocally;
+                  
+                  const isCurrentStep = index === currentStep && !isCompletedStep;
+                  const isUnlocked = index <= currentStep || isCompletedStep;
+                  
+                  console.log(`Step ${index} states:`, {
+                    isCurrentStep,
+                    isCompletedStep,
+                    isCompletedFromContract,
+                    isCompletedFromBackend,
+                    isCompletedLocally,
+                    isUnlocked,
+                    currentStep,
+                    backendStepCompleted: backendStep?.is_completed,
+                    hasRewardContent: backendStep?.reward_content ? true : false
+                  });
+                  
+                  if (!isUnlocked) {
+                    // Show locked card for future steps
+                    return (
+                      <Card key={index} className="border-gray-700 opacity-50">
+                        <CardContent className="p-6">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-10 h-10 rounded-full bg-gray-700 text-gray-400 flex items-center justify-center">
+                              <Lock className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-gray-500">Step {index + 1}</h3>
+                              <p className="text-sm text-gray-400">Locked until previous steps are complete</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }
+                  
+                  // Use StepUnlockDisplay for unlocked steps
+                  return (
+                    <StepUnlockDisplay
+                      key={index}
+                      step={step}
+                      stepIndex={index}
+                      isUnlocked={true} // Always show content for unlocked steps
+                      isCompleted={isCompletedStep}
+                      rewardContent={backendStep?.reward_content}
+                      rewardContentType={backendStep?.reward_content_type}
+                      onUnlock={(unlockData) => {
+                        // Only allow claiming for current step
+                        if (isCurrentStep && isRecipient) {
+                          handleClaimStep(index);
+                        }
+                      }}
+                      isUnlocking={isClaimPending || isConfirming}
+                      currentLocation={currentLocation || undefined}
+                    />
+                  );
+                })
+              ) : (
+                // Fallback to simple step display if no detailed data
+                Array.from({ length: totalSteps }, (_, index) => {
                 const stepNumber = index + 1;
                 const isCurrentStep = index === currentStep;
                 const isCompletedStep = index < currentStep;
@@ -304,7 +485,7 @@ export default function ClaimChainPage() {
                         {isCurrentStep && isRecipient && (
                           <Button 
                             onClick={() => handleClaimStep(index)}
-                            disabled={!currentLocation || isClaimPending || isClaimConfirming}
+                            disabled={!currentLocation || isClaimPending || isConfirming}
                             className="flex items-center space-x-2"
                           >
                             {isClaimPending ? (
@@ -312,7 +493,7 @@ export default function ClaimChainPage() {
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                                 <span>Waiting for wallet...</span>
                               </>
-                            ) : isClaimConfirming ? (
+                            ) : isConfirming ? (
                               <>
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                                 <span>Confirming...</span>
@@ -320,7 +501,7 @@ export default function ClaimChainPage() {
                             ) : (
                               <>
                                 <MapPin className="h-4 w-4" />
-                                <span>Claim Here</span>
+                                <span>Claim with GPS</span>
                               </>
                             )}
                           </Button>
@@ -329,22 +510,91 @@ export default function ClaimChainPage() {
                     </CardContent>
                   </Card>
                 );
-              })}
+                })
+              )}
             </div>
 
-            {/* TODO: Add individual step claiming functionality */}
-            <Card>
-              <CardContent className="p-6 text-center">
-                <h3 className="text-lg font-semibold mb-2">🚧 Step Claiming Coming Soon</h3>
-                <p className="text-gray-600">
-                  Individual step claiming with GPS verification is being developed.
-                </p>
-              </CardContent>
-            </Card>
+            {/* Loading state for step data */}
+            {!stepsData && !backendChainData && chainId && (
+              <Card className="bg-gray-900/50 border-gray-700">
+                <CardContent className="p-4 text-center">
+                  <p className="text-sm text-gray-400">Loading step details...</p>
+                </CardContent>
+              </Card>
+            )}
 
           </div>
         </div>
       </div>
+
+      {/* Bonus Reward Modal */}
+      {showRewardModal && rewardContent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4"
+          >
+            <Card className="border-2 border-green-200 bg-green-50">
+              <CardHeader className="text-center">
+                <CardTitle className="text-green-800 flex items-center justify-center gap-2">
+                  <Sparkles className="h-6 w-6" />
+                  🎉 Bonus Reward Unlocked!
+                  <Sparkles className="h-6 w-6" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {rewardContent.type === 'message' && (
+                  <div className="bg-white p-4 rounded-lg border border-green-200">
+                    <h4 className="font-medium text-green-800 mb-2">Secret Message:</h4>
+                    <p className="text-gray-700">{rewardContent.content}</p>
+                  </div>
+                )}
+                
+                {rewardContent.type === 'url' && (
+                  <div className="bg-white p-4 rounded-lg border border-green-200">
+                    <h4 className="font-medium text-green-800 mb-2">Special Link:</h4>
+                    <a 
+                      href={rewardContent.content} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline break-all"
+                    >
+                      {rewardContent.content}
+                    </a>
+                  </div>
+                )}
+                
+                {rewardContent.type === 'file' && (
+                  <div className="bg-white p-4 rounded-lg border border-green-200">
+                    <h4 className="font-medium text-green-800 mb-2">File Download:</h4>
+                    <a 
+                      href={rewardContent.content} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline break-all"
+                    >
+                      📎 Download File
+                    </a>
+                  </div>
+                )}
+                
+                <div className="flex justify-center pt-4">
+                  <Button 
+                    onClick={() => {
+                      setShowRewardModal(false);
+                      // Don't reload - let the UI naturally reflect the updated state
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    Awesome! ✨
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      )}
     </MainLayout>
   );
 }
