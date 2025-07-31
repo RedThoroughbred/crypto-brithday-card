@@ -15,6 +15,12 @@
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
     "deploy:mumbai": "hardhat run scripts/deploy.ts --network mumbai",
     "deploy:polygon": "hardhat run scripts/deploy.ts --network polygon",
+    "deploy:gsn": "hardhat run scripts/deploy-gsn-contracts.js --network sepolia",
+    "deploy:simple": "hardhat run scripts/deploy-simple-escrow.js --network sepolia",
+    "test:gsn": "hardhat run scripts/test-gsn.js --network sepolia",
+    "deploy:relay": "hardhat run scripts/deploy-relay-system.js --network sepolia",
+    "setup:relay": "hardhat run scripts/setup-relay-wallets.js --network sepolia",
+    "test:relay": "hardhat run scripts/test-relay-system.js --network sepolia",
     "verify:mumbai": "hardhat verify --network mumbai",
     "verify:polygon": "hardhat verify --network polygon",
     "node": "hardhat node",
@@ -59,5 +65,8 @@
     "escrow"
   ],
   "author": "GeoGift Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@opengsn/contracts": "^3.0.0-beta.10"
+  }
 }
