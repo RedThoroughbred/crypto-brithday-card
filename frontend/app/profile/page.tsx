@@ -19,7 +19,13 @@ import {
   Eye,
   EyeOff,
   Palette,
-  Gift
+  Gift,
+  Sparkles,
+  Rocket,
+  Compass,
+  Link,
+  Users,
+  Trophy
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,14 +40,14 @@ import { Badge } from '@/components/ui/badge';
 import { profileAPI, UserProfileUpdate, NotificationPreferencesUpdate } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 
-// Achievement icon mapping
+// Achievement icon mapping with cooler themed icons
 const achievementIcons = {
-  welcome_aboard: User,
-  first_steps: Gift,
-  adventure_seeker: MapPin,
-  chain_master: Award,
-  community_member: Calendar,
-  explorer: Globe,
+  welcome_aboard: Sparkles,     // Sparkles for joining the community
+  first_steps: Rocket,          // Rocket for getting started
+  adventure_seeker: Compass,    // Compass for exploring locations
+  chain_master: Link,           // Link for creating chains
+  community_member: Users,      // Users for social engagement
+  explorer: Trophy,             // Trophy for claiming many gifts
 };
 
 export default function ProfilePage() {

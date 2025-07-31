@@ -233,11 +233,51 @@ async def calculate_user_stats(user: User, db: AsyncSession) -> UserStatsRespons
     """Calculate user statistics for achievement system."""
     
     try:
-        # Simple approach - just count what we can safely count
-        gifts_created = 0
-        gifts_claimed = 0
-        chains_created = 0
-        unique_locations = 0
+        # Count gifts created by this user
+        gifts_created_stmt = select(func.count(Gift.id)).where(Gift.giver_address == user.wallet_address)
+        gifts_created_result = await db.execute(gifts_created_stmt)
+        gifts_created = gifts_created_result.scalar() or 0
+        
+        # Count gifts claimed by this user
+        gifts_claimed_stmt = select(func.count(Gift.id)).where(
+            Gift.receiver_address == user.wallet_address,
+            Gift.claimed == True
+        )
+        gifts_claimed_result = await db.execute(gifts_claimed_stmt)
+        gifts_claimed = gifts_claimed_result.scalar() or 0
+        
+        # Count chains created by this user
+        chains_created_stmt = select(func.count(GiftChain.id)).where(GiftChain.creator_address == user.wallet_address)
+        chains_created_result = await db.execute(chains_created_stmt)
+        chains_created = chains_created_result.scalar() or 0
+        
+        # Count unique locations for gifts created
+        unique_locations_stmt = select(func.count(distinct(func.concat(Gift.latitude, ',', Gift.longitude)))).where(
+            Gift.giver_address == user.wallet_address
+        )
+        unique_locations_result = await db.execute(unique_locations_stmt)
+        unique_locations = unique_locations_result.scalar() or 0
+        
+        # Get first gift created date
+        first_gift_stmt = select(func.min(Gift.created_at)).where(Gift.giver_address == user.wallet_address)
+        first_gift_result = await db.execute(first_gift_stmt)
+        first_gift_created_at = first_gift_result.scalar()
+        
+        # Get first gift claimed date
+        first_claim_stmt = select(func.min(Gift.claimed_at)).where(
+            Gift.receiver_address == user.wallet_address,
+            Gift.claimed == True
+        )
+        first_claim_result = await db.execute(first_claim_stmt)
+        first_gift_claimed_at = first_claim_result.scalar()
+        
+        # Count gifts created by user that were claimed by others
+        gifts_created_and_claimed_stmt = select(func.count(Gift.id)).where(
+            Gift.giver_address == user.wallet_address,
+            Gift.claimed == True
+        )
+        gifts_created_and_claimed_result = await db.execute(gifts_created_and_claimed_stmt)
+        gifts_created_and_claimed = gifts_created_and_claimed_result.scalar() or 0
         
         # Calculate days active
         days_active = (datetime.utcnow() - user.created_at).days
@@ -246,10 +286,11 @@ async def calculate_user_stats(user: User, db: AsyncSession) -> UserStatsRespons
             total_gifts_created=gifts_created,
             total_gifts_claimed=gifts_claimed,
             total_chains_created=chains_created,
-            first_gift_created_at=None,
-            first_gift_claimed_at=None,
+            first_gift_created_at=first_gift_created_at,
+            first_gift_claimed_at=first_gift_claimed_at,
             unique_locations_count=unique_locations,
-            days_active=days_active
+            days_active=days_active,
+            gifts_created_and_claimed=gifts_created_and_claimed
         )
     except Exception as e:
         logger.error("Error calculating user stats", error=str(e), user=user.wallet_address)
@@ -261,73 +302,79 @@ async def calculate_user_stats(user: User, db: AsyncSession) -> UserStatsRespons
             first_gift_created_at=None,
             first_gift_claimed_at=None,
             unique_locations_count=0,
-            days_active=0
+            days_active=0,
+            gifts_created_and_claimed=0
         )
 
 
-def generate_achievements(stats: UserStatsResponse) -> List[UserAchievement]:
+def generate_achievements(stats: UserStatsResponse, user: User) -> List[UserAchievement]:
     """Generate user achievements based on stats."""
     achievements = []
     
-    # Welcome Aboard - automatic
+    # Welcome Aboard - has profile display name
     achievements.append(UserAchievement(
         id="welcome_aboard",
         title="Welcome Aboard",
-        description="Joined the GeoGift community",
+        description="Complete your profile with a display name",
         category="milestone",
-        earned=True,
-        earned_date=datetime.utcnow() - timedelta(days=stats.days_active)
+        earned=bool(user.display_name),
+        earned_date=user.created_at if user.display_name else None,
+        progress=100 if user.display_name else 0
     ))
     
     # First Steps - created first gift
     achievements.append(UserAchievement(
         id="first_steps",
         title="First Steps", 
-        description="Created your first gift",
+        description="Create your first gift",
         category="creator",
         earned=stats.total_gifts_created > 0,
-        earned_date=stats.first_gift_created_at
+        earned_date=stats.first_gift_created_at,
+        progress=100 if stats.total_gifts_created > 0 else 0
     ))
     
-    # Adventure Seeker - claimed first gift
+    # Adventure Seeker - created gifts at 3+ unique locations
     achievements.append(UserAchievement(
         id="adventure_seeker",
         title="Adventure Seeker",
-        description="Claimed your first treasure",
+        description="Create gifts at 3 different locations",
         category="explorer", 
-        earned=stats.total_gifts_claimed > 0,
-        earned_date=stats.first_gift_claimed_at
+        earned=stats.unique_locations_count >= 3,
+        earned_date=None,  # Would need more complex calculation
+        progress=min(100, int((stats.unique_locations_count / 3) * 100))
     ))
     
-    # Chain Master - created first chain
+    # Chain Master - created 3+ chains
     achievements.append(UserAchievement(
         id="chain_master",
         title="Chain Master",
-        description="Created a multi-step adventure",
+        description="Create 3 multi-step adventures",
         category="creator",
-        earned=stats.total_chains_created > 0,
-        earned_date=None  # Would need to get from chains table
+        earned=stats.total_chains_created >= 3,
+        earned_date=None,  # Would need to get from chains table
+        progress=min(100, int((stats.total_chains_created / 3) * 100))
     ))
     
-    # Community Member - active for 30+ days
+    # Community Member - gifts claimed by others (measuring engagement)
     achievements.append(UserAchievement(
         id="community_member",
         title="Community Member", 
-        description="Active for 30+ days",
-        category="milestone",
-        earned=stats.days_active >= 30,
-        earned_date=datetime.utcnow() - timedelta(days=max(0, stats.days_active - 30)) if stats.days_active >= 30 else None
+        description="Have 3 of your gifts claimed by others",
+        category="social",
+        earned=stats.gifts_created_and_claimed >= 3,
+        earned_date=None,  # Would need to track when 3rd gift was claimed
+        progress=min(100, int((stats.gifts_created_and_claimed / 3) * 100))
     ))
     
-    # Explorer - visited 5+ different locations
+    # Explorer - claimed 5+ gifts from others
     achievements.append(UserAchievement(
         id="explorer",
         title="Explorer",
-        description="Created gifts at 5+ different locations", 
+        description="Claim 5 gifts from other users", 
         category="explorer",
-        earned=stats.unique_locations_count >= 5,
+        earned=stats.total_gifts_claimed >= 5,
         earned_date=None,  # Would need more complex calculation
-        progress=min(100, (stats.unique_locations_count / 5) * 100) if stats.unique_locations_count < 5 else None
+        progress=min(100, int((stats.total_gifts_claimed / 5) * 100))
     ))
     
     return achievements
@@ -360,7 +407,7 @@ async def get_achievements(
         stats = await calculate_user_stats(user, db)
         
         # Generate achievements
-        achievements = generate_achievements(stats)
+        achievements = generate_achievements(stats, user)
         
         # Calculate totals
         total_earned = sum(1 for achievement in achievements if achievement.earned)

@@ -95,6 +95,7 @@ class UserStatsResponse(BaseModel):
     first_gift_claimed_at: Optional[datetime] = Field(None, description="Date of first gift claim")
     unique_locations_count: int = Field(..., description="Number of unique locations used")
     days_active: int = Field(..., description="Number of days since joining")
+    gifts_created_and_claimed: int = Field(0, description="Gifts created by user that were claimed by others")
 
     class Config:
         from_attributes = True

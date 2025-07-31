@@ -33,12 +33,18 @@ GeoGift is a **location-verified crypto gift card platform** that transforms pas
 ### Blockchain: Ethereum Sepolia
 - **Smart Contracts**: LocationEscrow + GGTLocationChainEscrow
 - **Token**: Custom GGT token (1M supply) - `0x1775997EE682CCab7c6443168d63D2605922C633`
-- **Chain Escrow**: `0x41d62a76aF050097Bb9e8995c6B865588dFF6547` (Latest)
+- **Chain Escrow**: `0x41d62a76aF050097Bb9e8995c6B865588dFF6547` (CURRENT - Multi-step GGT chains)
 - **Networks**: Ethereum Sepolia (testnet) → Mainnet ready
 
-## 🚀 CURRENT STATUS: PRODUCTION-READY PLATFORM
+#### Smart Contract Evolution
+- **LocationEscrow**: `0x7cAaf328D23C257A2c1e902Ddd5Cc017963f64b1` (Original ETH escrow - deprecated)
+- **GGTLocationEscrow**: `0xd756E3A8bBF1d457805d3f1Cb9793038DFef5171` (Single GGT gifts - legacy)
+- **GGTLocationChainEscrow**: `0x41d62a76aF050097Bb9e8995c6B865588dFF6547` (ACTIVE - Multi-step chains)
+- **NewUserGiftEscrowGGT**: `0x9fAE6c354C7514d19Ad2029f7Adc534A31eac712` (NEW USER GIFTS - Claim code system)
 
-### ✅ MAJOR MILESTONE ACHIEVED: Complete Mobile Authentication System (July 30, 2025)
+## 🚀 CURRENT STATUS: PRODUCTION-READY PLATFORM + NEW USER ONBOARDING
+
+### ✅ MAJOR MILESTONE ACHIEVED: Complete New User Gift System (July 31, 2025)
 
 **🌟 Revolutionary Platform Features:**
 - **Complete User Dashboard**: Professional analytics interface with statistics, gift/chain history, and management tools ✅ PRODUCTION READY
@@ -48,6 +54,7 @@ GeoGift is a **location-verified crypto gift card platform** that transforms pas
 - **Dual Token Support**: Both ETH and custom GGT token integration with seamless UI ✅ PRODUCTION READY
 - **Web3 Authentication**: Complete wallet-based auth with JWT and challenge-response ✅ PRODUCTION READY
 - **Mobile-First Experience**: Full mobile compatibility with WalletConnect integration and persistent authentication ✅ PRODUCTION READY
+- **🎁 NEW USER GIFT SYSTEM**: Revolutionary crypto onboarding for wallet-less users with claim codes ✅ PRODUCTION READY
 
 **✅ USER PROFILE & DASHBOARD FEATURES:**
 - **Profile Management**: Display name, bio, favorite location with proper edit/save workflow
@@ -67,11 +74,21 @@ GeoGift is a **location-verified crypto gift card platform** that transforms pas
 - **Markdown Reading**: Content storage + simple unlock button ✅ BASIC FUNCTIONAL
 - **URL Visiting**: URL storage + simple unlock button ✅ BASIC FUNCTIONAL
 
+**🎁 NEW USER GIFT SYSTEM FEATURES:**
+- **Claim Code Generation**: Human-readable codes (HAPPY-GIFT-2025-ABC format) with cryptographic security
+- **Hash-Based Security**: keccak256 verification system for claim codes and unlock challenges
+- **Multiple Unlock Types**: Simple, Password, Quiz, GPS location verification for new users
+- **Two-Step Token Approval**: Automated GGT token approval → gift creation flow with proper UX guidance
+- **Wallet Onboarding**: Complete MetaMask setup guide with Sepolia testnet configuration
+- **Confetti Celebrations**: Full celebration effects matching existing gift claim experience
+- **Mobile Compatibility**: Cross-platform claim experience with proper redirect handling
+- **Gas Optimization**: Manual gas limits and separated write contracts to prevent over-estimation
+
 **✅ Technical Excellence:**
 - **Database Schema**: Complete PostgreSQL integration with user profiles, preferences, achievements
 - **API Architecture**: RESTful FastAPI with full CRUD operations, JWT authentication, error handling
 - **Frontend UX**: Premium dark theme, proper form controls, real-time updates, celebration effects
-- **Smart Contract Integration**: Dual escrow system (ETH + GGT) with secure multi-step functionality
+- **Smart Contract Integration**: Triple escrow system (ETH + GGT + NewUser) with secure functionality
 
 ## 🔧 Development Environment
 
@@ -91,14 +108,25 @@ docker run --name geogift-postgres -e POSTGRES_PASSWORD=geogift123 -p 5432:5432 
 ```bash
 # Database
 DATABASE_URL=postgresql://geogift:geogift123@localhost:5432/geogift_dev
+REDIS_URL=redis://localhost:6379/0
 
-# Blockchain  
+# Blockchain - Sepolia Testnet
 NEXT_PUBLIC_SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/your-key
 NEXT_PUBLIC_ENABLE_TESTNET=true
 NEXT_PUBLIC_CHAIN_ID=11155111
 
-# Security
+# Smart Contract Addresses (Sepolia)
+NEXT_PUBLIC_GGT_TOKEN_ADDRESS=0x1775997EE682CCab7c6443168d63D2605922C633
+NEXT_PUBLIC_GGT_CHAIN_ESCROW_ADDRESS=0x41d62a76aF050097Bb9e8995c6B865588dFF6547
+NEXT_PUBLIC_NEW_USER_GIFT_ESCROW_ADDRESS=0x9fAE6c354C7514d19Ad2029f7Adc534A31eac712
+
+# Security & Authentication
 JWT_SECRET_KEY=your-jwt-secret
+ENCRYPTION_KEY=your-encryption-key
+
+# APIs (Optional)
+GOOGLE_MAPS_API_KEY=your-google-maps-key
+MAPBOX_ACCESS_TOKEN=your-mapbox-token
 ```
 
 ## 📊 Current Implementation Status
@@ -111,8 +139,10 @@ JWT_SECRET_KEY=your-jwt-secret
 - **Frontend UX**: Professional dark theme with proper form controls ✅
 - **API Architecture**: RESTful endpoints with JWT protection ✅
 - **Mobile Authentication**: Cross-platform wallet integration with persistent token storage ✅
+- **New User Gift System**: Complete wallet-less crypto onboarding with claim codes ✅
 
 ### 🎯 IMMEDIATE NEXT STEPS
+- **ETH-Included Gifts**: Implement solution for gas fee problem (gift creators send ETH + GGT)
 - **Enhanced Achievements**: Add real database queries for accurate statistics
 - **Advanced Unlock Types**: Video player, image viewer, markdown renderer
 - **PWA Features**: Progressive web app capabilities and offline support
@@ -138,6 +168,46 @@ JWT_SECRET_KEY=your-jwt-secret
 - **Cross-Platform Compatibility**: Seamless experience on desktop and mobile devices
 - **Network-Aware API Calls**: Dynamic API endpoint configuration for local network access
 - **CORS Configuration**: Proper backend setup for cross-origin mobile requests
+
+**New User Gift System Architecture:**
+- **Claim Code Generation**: Cryptographically secure human-readable codes with timestamp and randomness
+- **Hash-Based Verification**: Client-side claim code hashing with server-side verification via smart contract
+- **Separated Transaction Flow**: Independent write contracts for approval, creation, and claiming to prevent gas estimation issues
+- **Gas Optimization**: Manual gas limits (300,000) to prevent MetaMask over-estimation
+- **Unlock Mechanism Support**: Extensible system supporting simple, password, quiz, and GPS unlock types
+- **Mobile-First UX**: Complete onboarding flow from email link to wallet setup to gift claiming
+
+## 💡 Core Technical Patterns
+
+### Web3 Authentication Flow
+```python
+# Challenge-Response Authentication (EIP-191 compliant)
+1. POST /auth/challenge → Generate unique nonce (5min expiry)
+2. Client signs message with MetaMask using encode_defunct()
+3. POST /auth/verify → Verify signature + issue JWT
+4. Protected endpoints use Bearer token authentication
+```
+
+### Location Verification Algorithm
+```python
+# Haversine formula for GPS distance calculation
+def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371000  # Earth's radius in meters
+    lat1_rad, lat2_rad = math.radians(lat1), math.radians(lat2)
+    delta_lat, delta_lon = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
+    
+    a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
+
+# Verification: distance <= radius
+```
+
+### Security Considerations
+- **GPS Spoofing Prevention**: Multi-factor verification with device sensors and behavioral analysis
+- **Smart Contract Security**: OpenZeppelin patterns, reentrancy guards, access control
+- **Data Protection**: Location encryption, private key client-side only, rate limiting
+- **Authentication Security**: Redis nonce management, JWT with expiration, signature verification
 
 ---
 

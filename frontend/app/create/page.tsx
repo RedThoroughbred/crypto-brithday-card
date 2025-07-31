@@ -19,14 +19,19 @@ import {
   FileText,
   HelpCircle,
   Lock,
-  Link
+  Link,
+  Users,
+  Wallet
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MainLayout } from '@/components/layout/main-layout';
 import { GiftCreatedModal } from '@/components/gift-created-modal';
+import { NewUserGiftForm } from '@/components/newuser-gift/new-user-gift-form';
+import { NewUserGiftSuccessModal } from '@/components/newuser-gift/new-user-gift-success-modal';
 
 const createGiftSchema = z.object({
   recipientAddress: z.string().min(42, 'Invalid Ethereum address').max(42, 'Invalid Ethereum address'),
@@ -57,6 +62,16 @@ export default function CreateGiftPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showGiftModal, setShowGiftModal] = useState(false);
+  const [showNewUserModal, setShowNewUserModal] = useState(false);
+  const [newUserGiftData, setNewUserGiftData] = useState<{
+    giftId: string;
+    claimCode: string;
+    amount: string;
+    message: string;
+    expiryDays: number;
+    unlockType: string;
+  } | null>(null);
+  const [activeTab, setActiveTab] = useState<'wallet' | 'newuser'>('wallet');
   
   // Smart contract integration
   const { 
@@ -99,10 +114,10 @@ export default function CreateGiftPage() {
     }
   }, [selectedLocation, setValue, trigger]);
   
-  // Debug form state (development only)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Form state:', { isValid, currentStep, unlockType: watchedValues.unlockType });
-  }
+  // Debug form state (development only) - disabled to reduce console noise
+  // if (process.env.NODE_ENV === 'development') {
+  //   console.log('Form state:', { isValid, currentStep, unlockType: watchedValues.unlockType });
+  // }
 
   // Show modal when gift is successfully created
   useEffect(() => {
@@ -174,6 +189,30 @@ export default function CreateGiftPage() {
     }
   };
 
+  const handleNewUserGiftSuccess = (giftId: string, claimCode: string, formData: {
+    amount: string;
+    message: string;
+    expiryDays: number;
+    unlockType: string;
+  }) => {
+    console.log('handleNewUserGiftSuccess called with:', { giftId, claimCode, formData });
+    
+    // Store data for success modal with actual form data
+    setNewUserGiftData({
+      giftId,
+      claimCode,
+      amount: formData.amount,
+      message: formData.message,
+      expiryDays: formData.expiryDays,
+      unlockType: formData.unlockType,
+    });
+    setShowNewUserModal(true);
+  };
+
+  const handleNewUserGiftCancel = () => {
+    setActiveTab('wallet');
+  };
+
   return (
     <MainLayout>
       <div className="min-h-screen gradient-dark-bg">
@@ -186,6 +225,22 @@ export default function CreateGiftPage() {
                 Transform your cryptocurrency into an exciting treasure hunt experience.
               </p>
             </div>
+
+            {/* Gift Type Tabs */}
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'wallet' | 'newuser')} className="mb-8">
+              <TabsList className="grid w-full grid-cols-2 bg-gray-800/50 border border-gray-700">
+                <TabsTrigger value="wallet" className="data-[state=active]:bg-cyan-500 data-[state=active]:text-black">
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Send to Wallet
+                </TabsTrigger>
+                <TabsTrigger value="newuser" className="data-[state=active]:bg-blue-500 data-[state=active]:text-black">
+                  <Users className="w-4 h-4 mr-2" />
+                  Send to New User
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="wallet" className="mt-8">
+                {/* Existing wallet-based gift creation */}
 
             {/* Progress Steps */}
             <div className="mb-8">
@@ -842,6 +897,16 @@ export default function CreateGiftPage() {
                 )}
               </div>
             </form>
+              </TabsContent>
+              
+              <TabsContent value="newuser" className="mt-8">
+                {/* New User Gift Creation */}
+                <NewUserGiftForm
+                  onSuccess={handleNewUserGiftSuccess}
+                  onCancel={handleNewUserGiftCancel}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>
@@ -854,6 +919,23 @@ export default function CreateGiftPage() {
         amount={watchedValues.amount || '0'}
         recipientAddress={watchedValues.recipientAddress || ''}
       />
+      
+      {/* New User Gift Success Modal */}
+      {newUserGiftData && (
+        <NewUserGiftSuccessModal
+          isOpen={showNewUserModal}
+          onClose={() => {
+            setShowNewUserModal(false);
+            setNewUserGiftData(null);
+          }}
+          giftId={newUserGiftData.giftId}
+          claimCode={newUserGiftData.claimCode}
+          amount={newUserGiftData.amount}
+          message={newUserGiftData.message}
+          expiryDays={newUserGiftData.expiryDays}
+          unlockType={newUserGiftData.unlockType}
+        />
+      )}
     </MainLayout>
   );
 }
