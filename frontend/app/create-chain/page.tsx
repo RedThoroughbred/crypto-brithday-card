@@ -265,10 +265,10 @@ export default function CreateChainPage() {
           return [
             coordinateToContract(step.unlockData.latitude),
             coordinateToContract(step.unlockData.longitude)
-          ];
+          ] as [bigint, bigint];
         }
         // For non-GPS types, use dummy coordinates
-        return [BigInt(0), BigInt(0)];
+        return [BigInt(0), BigInt(0)] as [bigint, bigint];
       });
 
       const stepRadii = chainSteps.map(step => {
