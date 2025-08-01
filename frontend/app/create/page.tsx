@@ -32,6 +32,7 @@ import { MainLayout } from '@/components/layout/main-layout';
 import { GiftCreatedModal } from '@/components/gift-created-modal';
 import { NewUserGiftForm } from '@/components/newuser-gift/new-user-gift-form';
 import { NewUserGiftSuccessModal } from '@/components/newuser-gift/new-user-gift-success-modal';
+import { useSimpleRelayEscrow } from '@/hooks/useSimpleRelayEscrow';
 
 const createGiftSchema = z.object({
   recipientAddress: z.string().min(42, 'Invalid Ethereum address').max(42, 'Invalid Ethereum address'),
@@ -47,6 +48,17 @@ const createGiftSchema = z.object({
   unlockChallengeData: z.string().max(5000, 'Challenge data too long').optional(),
   rewardContent: z.string().max(2000, 'Reward content too long').optional(),
   rewardContentType: z.enum(['url', 'file', 'message', 'none']).optional(),
+  gasless: z.boolean().optional(),
+  ethAmount: z.string().optional(), // ETH amount for gas sponsoring (when gasless = true)
+}).refine((data) => {
+  // If gasless mode is enabled, ETH amount is required
+  if (data.gasless && (!data.ethAmount || parseFloat(data.ethAmount) <= 0)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "ETH amount is required for gasless gifts",
+  path: ["ethAmount"],
 });
 
 type CreateGiftForm = z.infer<typeof createGiftSchema>;
@@ -67,11 +79,13 @@ export default function CreateGiftPage() {
     giftId: string;
     claimCode: string;
     amount: string;
+    ethAmount?: string;
     message: string;
     expiryDays: number;
     unlockType: string;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<'wallet' | 'newuser'>('wallet');
+  const [isGaslessMode, setIsGaslessMode] = useState(false);
   
   // Smart contract integration
   const { 
@@ -83,6 +97,14 @@ export default function CreateGiftPage() {
     isTxSuccess,
     resetCreateState 
   } = useLocationEscrow();
+
+  // Gasless direct gift integration
+  const { 
+    createDirectGift,
+    isCreating: isCreatingGasless,
+    createError: createErrorGasless,
+    createdGiftId: createdGiftIdGasless,
+  } = useSimpleRelayEscrow();
 
   const {
     register,
@@ -119,12 +141,19 @@ export default function CreateGiftPage() {
   //   console.log('Form state:', { isValid, currentStep, unlockType: watchedValues.unlockType });
   // }
 
-  // Show modal when gift is successfully created
+  // Show modal when gift is successfully created (traditional or gasless)
   useEffect(() => {
     if (isTxSuccess && createdGiftId) {
       setShowGiftModal(true);
     }
   }, [isTxSuccess, createdGiftId]);
+
+  // Show modal when gasless direct gift is successfully created
+  useEffect(() => {
+    if (createdGiftIdGasless) {
+      setShowGiftModal(true);
+    }
+  }, [createdGiftIdGasless]);
 
   if (!isConnected) {
     return (
@@ -157,21 +186,44 @@ export default function CreateGiftPage() {
     }
     
     try {
-      await createGift({
-        recipientAddress: data.recipientAddress,
-        amount: data.amount,
-        currency: data.currency,
-        latitude: data.unlockType === 'GPS' ? selectedLocation!.lat : 0,
-        longitude: data.unlockType === 'GPS' ? selectedLocation!.lng : 0,
-        radius: data.unlockType === 'GPS' ? data.radius! : 50,
-        clue: data.clue || '',
-        message: data.message,
-        expiryDays: data.expiryDays,
-        unlockType: data.unlockType,
-        unlockChallengeData: data.unlockChallengeData,
-        rewardContent: data.rewardContentType === 'none' ? undefined : data.rewardContent,
-        rewardContentType: data.rewardContentType === 'none' ? undefined : data.rewardContentType,
-      });
+      // Check if this is a gasless direct gift
+      if (data.gasless && data.currency === 'GGT' && data.ethAmount) {
+        console.log('🚀 Creating gasless direct gift via SimpleRelayEscrow');
+        
+        await createDirectGift({
+          recipientAddress: data.recipientAddress,
+          amount: data.amount,
+          ethAmount: data.ethAmount,
+          message: data.message,
+          expiryDays: data.expiryDays,
+          unlockType: data.unlockType.toLowerCase(),
+          unlockAnswer: data.unlockChallengeData,
+          unlockData: data.unlockType === 'GPS' ? `${selectedLocation?.lat},${selectedLocation?.lng}` : data.unlockChallengeData
+        });
+        
+        // Show success - createDirectGift will handle toasts
+        console.log('✅ Gasless direct gift created successfully');
+        
+      } else {
+        // Traditional gift creation (recipient pays gas)
+        console.log('📤 Creating traditional gift via LocationEscrow');
+        
+        await createGift({
+          recipientAddress: data.recipientAddress,
+          amount: data.amount,
+          currency: data.currency,
+          latitude: data.unlockType === 'GPS' ? selectedLocation!.lat : 0,
+          longitude: data.unlockType === 'GPS' ? selectedLocation!.lng : 0,
+          radius: data.unlockType === 'GPS' ? data.radius! : 50,
+          clue: data.clue || '',
+          message: data.message,
+          expiryDays: data.expiryDays,
+          unlockType: data.unlockType,
+          unlockChallengeData: data.unlockChallengeData,
+          rewardContent: data.rewardContentType === 'none' ? undefined : data.rewardContent,
+          rewardContentType: data.rewardContentType === 'none' ? undefined : data.rewardContentType,
+        });
+      }
     } catch (error) {
       console.error('Failed to create gift:', error);
     }
@@ -191,6 +243,7 @@ export default function CreateGiftPage() {
 
   const handleNewUserGiftSuccess = (giftId: string, claimCode: string, formData: {
     amount: string;
+    ethAmount?: string;
     message: string;
     expiryDays: number;
     unlockType: string;
@@ -202,6 +255,7 @@ export default function CreateGiftPage() {
       giftId,
       claimCode,
       amount: formData.amount,
+      ethAmount: formData.ethAmount,
       message: formData.message,
       expiryDays: formData.expiryDays,
       unlockType: formData.unlockType,
@@ -359,6 +413,54 @@ export default function CreateGiftPage() {
                           <p className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
                             ✨ GGT token gifts now supported! This will require approval + gift creation (2 transactions).
                           </p>
+                          
+                          {/* Gasless Option for GGT Direct Gifts */}
+                          <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-3 mt-2">
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id="gasless"
+                                checked={isGaslessMode}
+                                onChange={(e) => {
+                                  setIsGaslessMode(e.target.checked);
+                                  setValue('gasless', e.target.checked);
+                                  if (!e.target.checked) {
+                                    setValue('ethAmount', '');
+                                  }
+                                }}
+                                className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
+                              />
+                              <label htmlFor="gasless" className="text-sm font-medium text-cyan-800">
+                                🚀 Enable Gasless Claiming (Recommended!)
+                              </label>
+                            </div>
+                            <p className="text-xs text-cyan-700 mt-1 ml-6">
+                              You pay gas fees so recipient can claim with ZERO ETH. Perfect for onboarding new users!
+                            </p>
+                            
+                            {isGaslessMode && (
+                              <div className="mt-3 ml-6">
+                                <label className="block text-sm font-medium text-cyan-800 mb-1">
+                                  Gas Sponsoring Amount (ETH)
+                                </label>
+                                <Input
+                                  {...register('ethAmount')}
+                                  type="number"
+                                  step="0.001"
+                                  placeholder="0.01"
+                                  className="w-32 text-sm"
+                                />
+                                <p className="text-xs text-cyan-600 mt-1">
+                                  Recommended: 0.01 ETH covers claiming costs + relay profit
+                                </p>
+                                {errors.ethAmount && (
+                                  <p className="text-xs text-red-600 mt-1">
+                                    {errors.ethAmount.message}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -758,6 +860,22 @@ export default function CreateGiftPage() {
                             {watchedValues.currency === 'GGT' && <span className="ml-1">🎁</span>}
                           </dd>
                         </div>
+                        {watchedValues.gasless && watchedValues.ethAmount && (
+                          <div className="flex justify-between">
+                            <dt className="text-sm text-gray-600">Gas Sponsoring:</dt>
+                            <dd className="text-sm font-medium text-cyan-600">
+                              {watchedValues.ethAmount} ETH <span className="ml-1">🚀</span>
+                            </dd>
+                          </div>
+                        )}
+                        {watchedValues.gasless && (
+                          <div className="flex justify-between">
+                            <dt className="text-sm text-gray-600">Gift Type:</dt>
+                            <dd className="text-sm font-medium text-cyan-600">
+                              Gasless (Recipient pays 0 ETH)
+                            </dd>
+                          </div>
+                        )}
                         <div className="flex justify-between">
                           <dt className="text-sm text-gray-600">Location:</dt>
                           <dd className="text-sm">
@@ -780,12 +898,12 @@ export default function CreateGiftPage() {
                     </div>
 
                     {/* Transaction Status */}
-                    {createError && (
+                    {(createError || createErrorGasless) && (
                       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                         <h4 className="text-sm font-medium text-red-800 mb-2">
                           Transaction Failed:
                         </h4>
-                        <p className="text-sm text-red-700">{createError}</p>
+                        <p className="text-sm text-red-700">{createError || createErrorGasless}</p>
                         <Button
                           type="button"
                           variant="outline"
@@ -798,13 +916,18 @@ export default function CreateGiftPage() {
                       </div>
                     )}
 
-                    {isTxSuccess && createdGiftId && (
+                    {(isTxSuccess && createdGiftId || createdGiftIdGasless) && (
                       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                         <h4 className="text-sm font-medium text-green-800 mb-2">
-                          🎉 Gift Created Successfully!
+                          🎉 {watchedValues.gasless ? 'Gasless Gift' : 'Gift'} Created Successfully!
                         </h4>
                         <p className="text-sm text-green-700 mb-2">
-                          Your gift has been created and funds are locked in the smart contract.
+                          Your {watchedValues.gasless ? 'gasless ' : ''}gift has been created and funds are locked in the smart contract.
+                          {watchedValues.gasless && (
+                            <span className="block mt-1 font-medium text-cyan-700">
+                              🚀 Recipient can now claim with ZERO ETH!
+                            </span>
+                          )}
                         </p>
                         {createTxHash && (
                           <a
@@ -819,13 +942,18 @@ export default function CreateGiftPage() {
                       </div>
                     )}
 
-                    {isCreating && (
+                    {(isCreating || isCreatingGasless) && (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <h4 className="text-sm font-medium text-blue-800 mb-2">
-                          Creating Gift...
+                          Creating {watchedValues.gasless ? 'Gasless ' : ''}Gift...
                         </h4>
                         <p className="text-sm text-blue-700">
-                          Please confirm the transaction in your wallet and wait for confirmation.
+                          Please confirm the transaction{watchedValues.gasless ? 's' : ''} in your wallet and wait for confirmation.
+                          {watchedValues.gasless && (
+                            <span className="block mt-1">
+                              🚀 Setting up gasless claiming for recipient with zero ETH!
+                            </span>
+                          )}
                         </p>
                         <div className="mt-2 flex items-center">
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -834,7 +962,7 @@ export default function CreateGiftPage() {
                       </div>
                     )}
 
-                    {!isCreating && !isTxSuccess && (
+                    {!(isCreating || isCreatingGasless) && !(isTxSuccess || createdGiftIdGasless) && (
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                         <h4 className="text-sm font-medium text-yellow-800 mb-2">
                           Important Notes:
@@ -843,6 +971,12 @@ export default function CreateGiftPage() {
                           <li>• This action will create a smart contract transaction</li>
                           <li>• The gift amount will be locked until claimed or expired</li>
                           <li>• Gas fees will apply for the transaction</li>
+                          {watchedValues.gasless && (
+                            <>
+                              <li>• 🚀 <strong>Gasless mode:</strong> Recipient pays ZERO ETH to claim</li>
+                              <li>• 💰 Your ETH covers all claiming costs + relay fees</li>
+                            </>
+                          )}
                           <li>• Make sure all details are correct before proceeding</li>
                         </ul>
                       </div>
@@ -875,22 +1009,22 @@ export default function CreateGiftPage() {
                 ) : (
                   <Button 
                     type="submit" 
-                    disabled={!isValid || (watchedValues.unlockType === 'GPS' && !selectedLocation) || isCreating || isTxSuccess}
+                    disabled={!isValid || (watchedValues.unlockType === 'GPS' && !selectedLocation) || isCreating || isCreatingGasless || isTxSuccess || createdGiftIdGasless}
                   >
-                    {isCreating ? (
+                    {(isCreating || isCreatingGasless) ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Creating Gift...
+                        Creating {watchedValues.gasless ? 'Gasless ' : ''}Gift...
                       </>
-                    ) : isTxSuccess ? (
+                    ) : (isTxSuccess || createdGiftIdGasless) ? (
                       <>
                         <Gift className="mr-2 h-4 w-4" />
-                        Gift Created!
+                        {watchedValues.gasless ? 'Gasless ' : ''}Gift Created!
                       </>
                     ) : (
                       <>
                         <Gift className="mr-2 h-4 w-4" />
-                        Create Gift
+                        Create {watchedValues.gasless ? 'Gasless ' : ''}Gift
                       </>
                     )}
                   </Button>
@@ -915,9 +1049,12 @@ export default function CreateGiftPage() {
       <GiftCreatedModal
         isOpen={showGiftModal}
         onClose={() => setShowGiftModal(false)}
-        giftId={createdGiftId}
+        giftId={createdGiftId || createdGiftIdGasless}
         amount={watchedValues.amount || '0'}
         recipientAddress={watchedValues.recipientAddress || ''}
+        isGasless={watchedValues.gasless || false}
+        message={watchedValues.message}
+        unlockType={watchedValues.unlockType}
       />
       
       {/* New User Gift Success Modal */}
@@ -931,6 +1068,7 @@ export default function CreateGiftPage() {
           giftId={newUserGiftData.giftId}
           claimCode={newUserGiftData.claimCode}
           amount={newUserGiftData.amount}
+          ethAmount={newUserGiftData.ethAmount}
           message={newUserGiftData.message}
           expiryDays={newUserGiftData.expiryDays}
           unlockType={newUserGiftData.unlockType}

@@ -15,12 +15,13 @@ import { Card, CardContent } from '@/components/ui/card';
 interface GiftCreatedModalProps {
   isOpen: boolean;
   onClose: () => void;
-  giftId: number | null;
+  giftId: number | string | null;
   amount: string;
   recipientAddress: string;
   message?: string;
   unlockType?: string;
   location?: string;
+  isGasless?: boolean;
 }
 
 export function GiftCreatedModal({
@@ -32,6 +33,7 @@ export function GiftCreatedModal({
   message,
   unlockType,
   location,
+  isGasless = false,
 }: GiftCreatedModalProps) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
@@ -137,9 +139,16 @@ Enjoy!`;
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-2xl">🎉 Gift Created Successfully!</DialogTitle>
+          <DialogTitle className="text-2xl">
+            🎉 {isGasless ? 'Gasless ' : ''}Gift Created Successfully!
+          </DialogTitle>
           <DialogDescription>
-            Your {amount} GGT gift has been created and is ready to share.
+            Your {amount} GGT {isGasless ? 'gasless ' : ''}gift has been created and is ready to share.
+            {isGasless && (
+              <span className="block mt-1 text-cyan-600 font-medium">
+                🚀 Recipient can claim with ZERO ETH!
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
         
@@ -282,6 +291,11 @@ Enjoy!`;
           {/* Instructions */}
           <div className="text-sm text-gray-600 text-center">
             Share this link with the recipient. They'll need to solve the location clue and visit the GPS coordinates to claim their gift!
+            {isGasless && (
+              <div className="mt-2 text-cyan-600 font-medium">
+                🚀 Best part: They don't need any ETH to claim - you've covered all the fees!
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>

@@ -19,6 +19,7 @@ interface NewUserGiftSuccessModalProps {
   giftId: string;
   claimCode: string;
   amount: string;
+  ethAmount?: string;
   message: string;
   expiryDays: number;
   unlockType: string;
@@ -30,6 +31,7 @@ export function NewUserGiftSuccessModal({
   giftId,
   claimCode,
   amount,
+  ethAmount,
   message,
   expiryDays,
   unlockType,
@@ -46,11 +48,15 @@ export function NewUserGiftSuccessModal({
 
   const generateEmailTemplate = () => {
     const subject = `🎁 You received ${amount} GGT crypto tokens!`;
+    const ethInfo = ethAmount && parseFloat(ethAmount) > 0 
+      ? `\n⛽ Gas Money: ${ethAmount} ETH (for transaction fees)` 
+      : '';
+    
     const body = `Hi there!
 
 I've sent you ${amount} GGT as a crypto gift!
 
-💰 Your Gift: ${amount} GGT (GeoGift Tokens)
+💰 Your Gift: ${amount} GGT (GeoGift Tokens)${ethInfo}
 🔐 Claim Code: ${formatClaimCodeForDisplay(claimCode)}
 💬 Message: "${message}"
 
@@ -118,8 +124,8 @@ Enjoy your first crypto experience!`;
             </Badge>
           </DialogTitle>
           <DialogDescription>
-            Your {amount} GGT gift is ready! The recipient can claim it with the code below, 
-            even if they don't have a crypto wallet yet.
+            Your {amount} GGT gift{ethAmount && parseFloat(ethAmount) > 0 ? ` (+ ${ethAmount} ETH for gas)` : ''} is ready! 
+            The recipient can claim it with the code below, even if they don't have a crypto wallet yet.
           </DialogDescription>
         </DialogHeader>
         
@@ -164,9 +170,15 @@ Enjoy your first crypto experience!`;
               </h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-gray-400">Amount:</span>
+                  <span className="text-gray-400">GGT Amount:</span>
                   <span className="text-white font-medium ml-2">{amount} GGT</span>
                 </div>
+                {ethAmount && parseFloat(ethAmount) > 0 && (
+                  <div>
+                    <span className="text-gray-400">ETH for Gas:</span>
+                    <span className="text-yellow-300 font-medium ml-2">{ethAmount} ETH</span>
+                  </div>
+                )}
                 <div>
                   <span className="text-gray-400">Unlock Type:</span>
                   <span className="text-white font-medium ml-2 capitalize">{unlockType}</span>
@@ -175,7 +187,7 @@ Enjoy your first crypto experience!`;
                   <span className="text-gray-400">Expires:</span>
                   <span className="text-white font-medium ml-2">{expiryDate.toLocaleDateString()}</span>
                 </div>
-                <div>
+                <div className="col-span-2">
                   <span className="text-gray-400">Gift ID:</span>
                   <span className="text-white font-mono text-xs ml-2">{giftId.slice(0, 8)}...</span>
                 </div>

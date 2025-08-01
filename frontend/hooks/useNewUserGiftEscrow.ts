@@ -31,12 +31,13 @@ const ERC20_ABI = [
   }
 ] as const;
 
-// Contract ABI for NewUserGiftEscrow
+// Contract ABI for NewUserGiftEscrowGGTWithETH
 const NEW_USER_GIFT_ESCROW_ABI = [
   {
     "inputs": [
       {"name": "claimHash", "type": "bytes32"},
-      {"name": "amount", "type": "uint256"},
+      {"name": "ggtAmount", "type": "uint256"},
+      {"name": "ethAmount", "type": "uint256"},
       {"name": "expiryDays", "type": "uint256"},
       {"name": "message", "type": "string"},
       {"name": "unlockType", "type": "string"},
@@ -45,7 +46,7 @@ const NEW_USER_GIFT_ESCROW_ABI = [
     ],
     "name": "createNewUserGift",
     "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "payable",
     "type": "function"
   },
   {
@@ -64,7 +65,8 @@ const NEW_USER_GIFT_ESCROW_ABI = [
     "name": "getGift",
     "outputs": [
       {"name": "sender", "type": "address"},
-      {"name": "amount", "type": "uint256"},
+      {"name": "ggtAmount", "type": "uint256"},
+      {"name": "ethAmount", "type": "uint256"},
       {"name": "expiry", "type": "uint256"},
       {"name": "claimed", "type": "bool"},
       {"name": "refunded", "type": "bool"},
@@ -94,7 +96,8 @@ const NEW_USER_GIFT_ESCROW_ABI = [
     "inputs": [
       {"indexed": true, "name": "giftId", "type": "bytes32"},
       {"indexed": true, "name": "sender", "type": "address"},
-      {"indexed": false, "name": "amount", "type": "uint256"},
+      {"indexed": false, "name": "ggtAmount", "type": "uint256"},
+      {"indexed": false, "name": "ethAmount", "type": "uint256"},
       {"indexed": false, "name": "expiry", "type": "uint256"},
       {"indexed": false, "name": "unlockType", "type": "string"}
     ],
@@ -106,14 +109,16 @@ const NEW_USER_GIFT_ESCROW_ABI = [
     "inputs": [
       {"indexed": true, "name": "giftId", "type": "bytes32"},
       {"indexed": true, "name": "recipient", "type": "address"},
-      {"indexed": false, "name": "amount", "type": "uint256"}
+      {"indexed": false, "name": "ggtAmount", "type": "uint256"},
+      {"indexed": false, "name": "ethAmount", "type": "uint256"}
     ],
     "name": "GiftClaimed",
     "type": "event"
   }
 ] as const;
 
-const CONTRACT_ADDRESS = '0x9fAE6c354C7514d19Ad2029f7Adc534A31eac712' as const;
+// NewUserGiftEscrowGGTWithETH contract address on Sepolia
+const CONTRACT_ADDRESS = '0x8284ab51a3221c7b295f949512B43DA1EB0Cd44f' as const; // SimpleRelayEscrow for gasless testing
 
 export function useNewUserGiftEscrow() {
   const { toast } = useToast();
@@ -162,7 +167,8 @@ export function useNewUserGiftEscrow() {
       setCurrentGiftParams(contractParams);
       
       console.log('Step 1: Approving GGT tokens...');
-      console.log('Amount to approve:', contractParams.amount.toString());
+      console.log('GGT amount to approve:', contractParams.ggtAmount.toString());
+      console.log('ETH amount to include:', contractParams.ethAmount.toString());
       
       toast({
         title: 'Approving GGT tokens...',
@@ -174,7 +180,7 @@ export function useNewUserGiftEscrow() {
         address: GGT_TOKEN_ADDRESS,
         abi: ERC20_ABI,
         functionName: 'approve',
-        args: [CONTRACT_ADDRESS, contractParams.amount],
+        args: [CONTRACT_ADDRESS, contractParams.ggtAmount],
       });
       
     } catch (error) {
@@ -232,6 +238,10 @@ export function useNewUserGiftEscrow() {
       args: giftId ? [giftId as `0x${string}`] : undefined,
       query: {
         enabled: !!giftId,
+        staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
+        gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes (formerly cacheTime)
+        refetchOnWindowFocus: false, // Don't refetch on window focus
+        refetchOnReconnect: false, // Don't refetch on reconnect
       },
     });
   };
@@ -247,6 +257,10 @@ export function useNewUserGiftEscrow() {
       args: giftId ? [giftId as `0x${string}`] : undefined,
       query: {
         enabled: !!giftId,
+        staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
+        gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes (formerly cacheTime)
+        refetchOnWindowFocus: false, // Don't refetch on window focus
+        refetchOnReconnect: false, // Don't refetch on reconnect
       },
     });
   };
@@ -268,9 +282,11 @@ export function useNewUserGiftEscrow() {
             address: CONTRACT_ADDRESS,
             abi: NEW_USER_GIFT_ESCROW_ABI,
             functionName: 'createNewUserGift',
+            value: currentGiftParams.ethAmount, // Send ETH with the transaction
             args: [
               currentGiftParams.claimHash,
-              currentGiftParams.amount,
+              currentGiftParams.ggtAmount,
+              currentGiftParams.ethAmount,
               BigInt(currentGiftParams.expiryDays),
               currentGiftParams.message,
               currentGiftParams.unlockType,

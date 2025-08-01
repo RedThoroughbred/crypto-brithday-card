@@ -13,6 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Users, Gift, Clock, Shield, HelpCircle } from 'lucide-react';
 import { useNewUserGiftEscrow } from '@/hooks/useNewUserGiftEscrow';
+import { useNewUserGiftEscrowGSN } from '@/hooks/useNewUserGiftEscrowGSN';
+import { useGSNProvider } from '@/hooks/useGSNProvider';
+import { useSimpleRelayEscrow } from '@/hooks/useSimpleRelayEscrow';
+import { Switch } from '@/components/ui/switch';
 import { formatClaimCodeForDisplay } from '@/lib/newuser-gift';
 
 const newUserGiftSchema = z.object({
@@ -20,6 +24,10 @@ const newUserGiftSchema = z.object({
     const num = parseFloat(val);
     return num > 0 && num <= 10000;
   }, 'Amount must be between 0 and 10,000 GGT'),
+  ethAmount: z.string().min(1, 'ETH amount is required').refine(val => {
+    const num = parseFloat(val);
+    return num >= 0.001 && num <= 0.1;
+  }, 'ETH amount must be between 0.001 and 0.1'),
   message: z.string().min(1, 'Message is required').max(500, 'Message too long'),
   expiryDays: z.string().refine(val => {
     const num = parseInt(val);
@@ -43,9 +51,25 @@ interface NewUserGiftFormProps {
 }
 
 export function NewUserGiftForm({ onSuccess, onCancel }: NewUserGiftFormProps) {
-  const { createNewUserGift, isCreating, createdGiftId, claimCode, createError } = useNewUserGiftEscrow();
+  const { createNewUserGift: createLegacy, isCreating: isCreatingLegacy, createdGiftId: createdGiftIdLegacy, claimCode: claimCodeLegacy, createError: createErrorLegacy } = useNewUserGiftEscrow();
+  const { createGift: createGSN, isLoading: isCreatingGSN, contractAddress: gsnContractAddress, isGSNEnabled } = useNewUserGiftEscrowGSN();
+  const { isGSNAvailable, isInitializing: isGSNInitializing } = useGSNProvider();
+  const { createGift: createRelay, isCreating: isCreatingRelay, createdGiftId: createdGiftIdRelay, claimCode: claimCodeRelay, createError: createErrorRelay } = useSimpleRelayEscrow();
+  
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [submittedFormData, setSubmittedFormData] = useState<any>(null);
+  const [useGasless, setUseGasless] = useState(true); // Default to gasless if available
+  const [gsnGiftResult, setGsnGiftResult] = useState<{ giftId: string; claimCode: string } | null>(null);
+  
+  // Determine which gift creation method to use
+  const shouldUseRelay = useGasless; // Use relay for gasless claiming
+  const shouldUseGSN = !useGasless && isGSNAvailable && isGSNEnabled && gsnContractAddress;
+  const shouldUseLegacy = !useGasless && !shouldUseGSN;
+  
+  const isCreating = shouldUseRelay ? isCreatingRelay : shouldUseGSN ? isCreatingGSN : isCreatingLegacy;
+  const createdGiftId = shouldUseRelay ? createdGiftIdRelay : shouldUseGSN ? gsnGiftResult?.giftId : createdGiftIdLegacy;
+  const claimCode = shouldUseRelay ? claimCodeRelay : shouldUseGSN ? gsnGiftResult?.claimCode : claimCodeLegacy;
+  const createError = shouldUseRelay ? createErrorRelay : shouldUseGSN ? null : createErrorLegacy;
 
   // Debug the form state
   React.useEffect(() => {
@@ -62,6 +86,7 @@ export function NewUserGiftForm({ onSuccess, onCancel }: NewUserGiftFormProps) {
     resolver: zodResolver(newUserGiftSchema),
     defaultValues: {
       amount: '100',
+      ethAmount: '0.005',
       message: '',
       expiryDays: '30',
       unlockType: 'simple',
@@ -71,25 +96,66 @@ export function NewUserGiftForm({ onSuccess, onCancel }: NewUserGiftFormProps) {
   const unlockType = watch('unlockType');
 
   const onSubmit = async (data: NewUserGiftForm) => {
-    console.log('NewUserGiftForm - Submitting:', data);
+    console.log('NewUserGiftForm - Submitting:', data, 'Method:', { shouldUseRelay, shouldUseGSN, shouldUseLegacy });
     
     // Store form data for success callback
-    setSubmittedFormData({
+    const formData = {
       amount: data.amount,
+      ethAmount: data.ethAmount,
       message: data.message,
       expiryDays: parseInt(data.expiryDays),
       unlockType: data.unlockType,
-    });
+    };
+    setSubmittedFormData(formData);
     
     try {
-      await createNewUserGift({
-        amount: data.amount,
-        message: data.message,
-        expiryDays: parseInt(data.expiryDays),
-        unlockType: data.unlockType,
-        unlockAnswer: data.unlockAnswer,
-        unlockData: data.unlockData,
-      });
+      if (shouldUseRelay) {
+        console.log('⚡ Creating gasless-compatible gift with SimpleRelayEscrow...');
+        await createRelay({
+          amount: data.amount,
+          ethAmount: data.ethAmount,
+          message: data.message,
+          expiryDays: parseInt(data.expiryDays),
+          unlockType: data.unlockType,
+          unlockAnswer: data.unlockAnswer,
+          unlockData: data.unlockData,
+        });
+      } else if (shouldUseGSN) {
+        console.log('🚀 Creating GSN gift...');
+        
+        // Generate claim code for GSN (since GSN returns only giftId and txHash)
+        const { generateClaimCode } = await import('@/hooks/useNewUserGiftEscrowGSN');
+        const generatedClaimCode = generateClaimCode();
+        
+        const result = await createGSN({
+          claimCode: generatedClaimCode,
+          ggtAmount: data.amount,
+          gasAllowance: data.ethAmount,
+          expiryDays: parseInt(data.expiryDays),
+          message: data.message,
+          unlockType: data.unlockType,
+          unlockAnswer: data.unlockAnswer,
+          unlockData: data.unlockData,
+        });
+        
+        if (result) {
+          setGsnGiftResult({
+            giftId: result.giftId,
+            claimCode: generatedClaimCode,
+          });
+        }
+      } else {
+        console.log('📦 Creating legacy gift...');
+        await createLegacy({
+          amount: data.amount,
+          ethAmount: data.ethAmount,
+          message: data.message,
+          expiryDays: parseInt(data.expiryDays),
+          unlockType: data.unlockType,
+          unlockAnswer: data.unlockAnswer,
+          unlockData: data.unlockData,
+        });
+      }
     } catch (error) {
       console.error('NewUserGiftForm - Submit error:', error);
     }
@@ -120,12 +186,34 @@ export function NewUserGiftForm({ onSuccess, onCancel }: NewUserGiftFormProps) {
       </Card>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Gasless Toggle */}
+        <Card className="bg-purple-950/30 border-purple-400/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="text-purple-100 font-medium">⚡ Gasless Claiming</Label>
+                <p className="text-purple-200/80 text-sm">
+                  {useGasless ? 'Recipients won\'t need any ETH to claim their gift!' : 'Recipients will need ETH for transaction fees'}
+                </p>
+                <p className="text-purple-300/60 text-xs">
+                  {useGasless ? 'Uses SimpleRelayEscrow for true gasless claiming' : 'Uses standard escrow contracts'}
+                </p>
+              </div>
+              <Switch
+                checked={useGasless}
+                onCheckedChange={setUseGasless}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Basic Gift Details */}
         <Card className="bg-gray-800/50 border-gray-700">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Gift className="w-5 h-5" />
-              Gift Details
+              Gift Details {shouldUseRelay && <Badge className="bg-green-600 text-white">⚡ Gasless</Badge>}
+              {shouldUseGSN && <Badge className="bg-purple-600 text-white">GSN</Badge>}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -147,6 +235,34 @@ export function NewUserGiftForm({ onSuccess, onCancel }: NewUserGiftFormProps) {
               {errors.amount && (
                 <p className="text-red-400 text-sm mt-1">{errors.amount.message}</p>
               )}
+            </div>
+
+            {/* ETH Amount for Gas */}
+            <div>
+              <Label htmlFor="ethAmount" className="text-gray-300">
+                {shouldUseRelay ? 'Gas Sponsoring Fund (ETH)' : shouldUseGSN ? 'Gas Sponsoring Fund (ETH)' : 'Gas Money (ETH)'}
+              </Label>
+              <Input
+                id="ethAmount"
+                type="number"
+                step="0.001"
+                min="0.001"
+                max="0.1"
+                {...register('ethAmount')}
+                className="bg-gray-700 border-gray-600 text-white"
+                placeholder="0.005"
+              />
+              {errors.ethAmount && (
+                <p className="text-red-400 text-sm mt-1">{errors.ethAmount.message}</p>
+              )}
+              <p className="text-gray-400 text-xs mt-1">
+                {shouldUseRelay 
+                  ? '⚡ This ETH sponsors gasless transactions via our relay service!' 
+                  : shouldUseGSN 
+                  ? '⚡ This ETH will sponsor gasless transactions for the recipient!' 
+                  : 'Recipients need ETH for transaction fees. 0.005 ETH covers ~10-20 transactions.'
+                }
+              </p>
             </div>
 
             {/* Message */}
@@ -317,16 +433,57 @@ export function NewUserGiftForm({ onSuccess, onCancel }: NewUserGiftFormProps) {
         </Card>
 
         {/* Important Notice */}
-        <div className="bg-blue-900/30 border border-blue-600/50 rounded-lg p-4">
+        <div className={`border rounded-lg p-4 ${
+          shouldUseRelay 
+            ? 'bg-green-900/30 border-green-600/50' 
+            : shouldUseGSN 
+            ? 'bg-purple-900/30 border-purple-600/50' 
+            : 'bg-blue-900/30 border-blue-600/50'
+        }`}>
           <div className="flex items-start gap-3">
-            <div className="text-blue-400 mt-0.5">ℹ️</div>
+            <div className={`mt-0.5 ${
+              shouldUseRelay ? 'text-green-400' : shouldUseGSN ? 'text-purple-400' : 'text-blue-400'
+            }`}>
+              {shouldUseRelay || shouldUseGSN ? '⚡' : 'ℹ️'}
+            </div>
             <div className="text-sm">
-              <p className="text-blue-200 font-medium mb-1">Two-Step Process</p>
-              <p className="text-blue-300/80">
-                1. First you'll approve GGT tokens<br/>
-                2. Then create your gift<br/>
-                <span className="text-xs text-blue-400">You'll see two MetaMask popups automatically</span>
-              </p>
+              {shouldUseRelay ? (
+                <>
+                  <p className="text-green-200 font-medium mb-1">Gasless Gift Creation (Relay Service)</p>
+                  <p className="text-green-300/80">
+                    1. First you'll approve GGT tokens<br/>
+                    2. Then create your gasless-compatible gift<br/>
+                    <span className="text-xs text-green-400">You'll see two MetaMask popups automatically</span>
+                  </p>
+                  <p className="text-green-300/80 mt-2 text-xs">
+                    ⚡ Recipients can claim completely gasless using our relay service!
+                  </p>
+                </>
+              ) : shouldUseGSN ? (
+                <>
+                  <p className="text-purple-200 font-medium mb-1">GSN Gift Creation</p>
+                  <p className="text-purple-300/80">
+                    1. First you'll approve GGT tokens<br/>
+                    2. Then create your GSN gift<br/>
+                    <span className="text-xs text-purple-400">You'll see two MetaMask popups automatically</span>
+                  </p>
+                  <p className="text-purple-300/80 mt-2 text-xs">
+                    ⚡ The recipient won't need ANY ETH to claim their gift - completely gasless!
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-blue-200 font-medium mb-1">Two-Step Process</p>
+                  <p className="text-blue-300/80">
+                    1. First you'll approve GGT tokens<br/>
+                    2. Then create your gift (includes ETH for gas)<br/>
+                    <span className="text-xs text-blue-400">You'll see two MetaMask popups automatically</span>
+                  </p>
+                  <p className="text-blue-300/80 mt-2 text-xs">
+                    💡 The ETH you include helps new users pay for their first transactions
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -345,9 +502,21 @@ export function NewUserGiftForm({ onSuccess, onCancel }: NewUserGiftFormProps) {
           <Button
             type="submit"
             disabled={!isValid || isCreating}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            className={`flex-1 text-white ${
+              shouldUseRelay 
+                ? 'bg-green-600 hover:bg-green-700' 
+                : shouldUseGSN 
+                ? 'bg-purple-600 hover:bg-purple-700' 
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
-            {isCreating ? 'Creating Gift...' : 'Create New User Gift'}
+            {isCreating ? (
+              shouldUseRelay ? 'Creating Gasless Gift...' : shouldUseGSN ? 'Creating GSN Gift...' : 'Creating Gift...'
+            ) : (
+              <>
+                {shouldUseRelay ? '⚡ Create Gasless Gift' : shouldUseGSN ? '⚡ Create GSN Gift' : 'Create New User Gift'}
+              </>
+            )}
           </Button>
         </div>
       </form>

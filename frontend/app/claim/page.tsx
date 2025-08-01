@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useAccount, useReadContract } from 'wagmi';
+import { useAccount, useReadContract, useSignMessage } from 'wagmi';
 import { formatEther } from 'viem';
 import { motion } from 'framer-motion';
 import { 
@@ -33,6 +33,7 @@ import { MainLayout } from '@/components/layout/main-layout';
 import { formatDistance, calculateDistance } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useLocationEscrow } from '@/hooks/useLocationEscrow';
+import { useSimpleRelayEscrow } from '@/hooks/useSimpleRelayEscrow';
 import { LOCATION_ESCROW_ADDRESS, LOCATION_ESCROW_ABI, GGT_ESCROW_ADDRESS, GGT_ESCROW_ABI, coordinateFromContract } from '@/lib/contracts';
 import { GGT_TOKEN } from '@/lib/constants';
 import { Confetti, FloatingGifts } from '@/components/ui/confetti';
@@ -48,20 +49,30 @@ interface LocationState {
 
 function ClaimGiftContent() {
   const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const { claimGift } = useLocationEscrow();
+  const { useDirectGiftDetails } = useSimpleRelayEscrow();
   const giftId = searchParams.get('id');
   const giftType = searchParams.get('type') || 'ggt'; // Default to GGT since that's the primary token
   const isGGT = giftType === 'ggt';
+  
+  // Detect if this is a SimpleRelayEscrow direct gift (hex string starting with 0x)
+  const isDirectGift = giftId && giftId.startsWith('0x') && giftId.length === 66;
 
-  // Read gift data from smart contract (ETH or GGT)
+  // Read gift data from smart contract (ETH/GGT or Direct Gift)
   const { data: contractGift, isLoading: isLoadingGift } = useReadContract({
     address: isGGT ? GGT_ESCROW_ADDRESS : LOCATION_ESCROW_ADDRESS,
     abi: isGGT ? GGT_ESCROW_ABI : LOCATION_ESCROW_ABI,
     functionName: 'gifts',
-    args: giftId ? [BigInt(giftId)] : undefined,
+    args: giftId && !isDirectGift ? [BigInt(giftId)] : undefined,
   });
+
+  // Read direct gift data from SimpleRelayEscrow if it's a direct gift
+  const { data: directGiftData, isLoading: isLoadingDirectGift } = useDirectGiftDetails(
+    isDirectGift ? giftId : null
+  );
 
   const [location, setLocation] = useState<LocationState>({
     latitude: null,
@@ -85,9 +96,32 @@ function ClaimGiftContent() {
   const [hasViewedContent, setHasViewedContent] = useState(false);
   const [showRewardContent, setShowRewardContent] = useState(false);
 
-  // Parse gift data from contract
-  // Note: GGT and ETH contracts have same field order, so we can use same parsing
-  const gift = contractGift ? {
+  // Parse gift data from contract (traditional or direct)
+  const gift = isDirectGift && directGiftData ? {
+    // Direct gift from SimpleRelayEscrow
+    giver: directGiftData[0],
+    receiver: directGiftData[1], // Direct gifts have explicit recipient
+    amount: formatEther(directGiftData[2]),
+    targetLat: 0, // Direct gifts don't use GPS by default
+    targetLng: 0,
+    radius: 50, // Default radius
+    clueHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    expiryTime: Number(directGiftData[4]),
+    metadata: '',
+    claimed: directGiftData[5],
+    exists: true,
+    claimAttempts: 0,
+    createdAt: 0,
+    message: directGiftData[7] || '', // Message from contract
+    currency: 'GGT', // Direct gifts are always GGT
+    unlockType: directGiftData[8] || 'simple', // Unlock type from contract
+    unlockChallengeData: directGiftData[9] || '', // Unlock data from contract
+    rewardContent: '', // Direct gifts don't have reward content yet
+    rewardContentType: '',
+    isDirectGift: true,
+    gasAllowance: formatEther(directGiftData[3] || 0), // Gas allowance for gasless claiming
+  } : contractGift ? {
+    // Traditional gift from GGT/ETH escrow
     giver: contractGift[0],
     receiver: contractGift[1], 
     amount: formatEther(contractGift[2]),
@@ -107,11 +141,12 @@ function ClaimGiftContent() {
     unlockChallengeData: backendGift?.unlock_challenge_data || '', // Get unlock challenge data from backend
     rewardContent: backendGift?.reward_content || '', // Get reward content from backend
     rewardContentType: backendGift?.reward_content_type || '', // Get reward content type from backend
+    isDirectGift: false,
   } : null;
 
-  // Fetch gift message from backend
+  // Fetch gift message from backend (skip for direct gifts)
   useEffect(() => {
-    if (giftId) {
+    if (giftId && !isDirectGift) {
       giftAPI.getGiftByEscrowId(giftId)
         .then((backendData) => {
           setBackendGift(backendData);
@@ -121,7 +156,7 @@ function ClaimGiftContent() {
           // Don't fail the flow if backend is unavailable
         });
     }
-  }, [giftId]);
+  }, [giftId, isDirectGift]);
 
   useEffect(() => {
     if (gift) {
@@ -145,9 +180,10 @@ function ClaimGiftContent() {
         } else {
           setCanClaim(false);
         }
-      } else if (gift.unlockType === 'PASSWORD') {
+      } else if (gift.unlockType === 'PASSWORD' || gift.unlockType === 'password') {
         // Password unlock requires correct password
-        setCanClaim(passwordInput === gift.unlockChallengeData && !gift.claimed);
+        const correctPassword = gift.unlockChallengeData || gift.unlockData;
+        setCanClaim(passwordInput === correctPassword && !gift.claimed);
       } else if (gift.unlockType === 'QUIZ') {
         // Quiz unlock requires correct answer
         // Parse quiz data (format: "Question: What is 2+2? | Answer: 4")
@@ -252,18 +288,77 @@ function ClaimGiftContent() {
   };
 
   const handleClaim = async () => {
-    if (!canClaim || !gift || !giftId) return;
+    if (!canClaim || !gift || !giftId || !address) return;
     
     // For GPS gifts, require actual location
     if (gift.unlockType === 'GPS' && (!location.latitude || !location.longitude)) return;
 
     setClaiming(true);
     try {
-      // Use actual location for GPS gifts, dummy coordinates for others
-      const claimLat = gift.unlockType === 'GPS' ? location.latitude! : 0;
-      const claimLng = gift.unlockType === 'GPS' ? location.longitude! : 0;
-      
-      await claimGift(Number(giftId), claimLat, claimLng, isGGT);
+      if (gift.isDirectGift) {
+        // Gasless claiming for direct gifts via relay service
+        console.log('🚀 Starting gasless direct gift claim via relay service');
+        
+        // Get unlock answer based on type
+        let unlockAnswer = '';
+        if (gift.unlockType === 'password') {
+          unlockAnswer = passwordInput;
+        } else if (gift.unlockType === 'quiz') {
+          unlockAnswer = quizAnswer;
+        } else if (gift.unlockType === 'gps') {
+          unlockAnswer = `${location.latitude},${location.longitude}`;
+        }
+        
+        // Step 1: Get nonce from relay service
+        const nonceResponse = await fetch(`http://192.168.86.245:3001/direct-nonce/${giftId}`);
+        const { nonce } = await nonceResponse.json();
+        
+        // Step 2: Create claim signature hash
+        const hashResponse = await fetch('http://192.168.86.245:3001/create-direct-claim-hash', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            giftId,
+            recipient: address,
+            unlockAnswer,
+            nonce: parseInt(nonce)
+          })
+        });
+        const { messageHash } = await hashResponse.json();
+        
+        // Step 3: Sign the message hash with user's wallet
+        const signature = await signMessageAsync({
+          message: { raw: messageHash as `0x${string}` }
+        });
+        
+        // Step 4: Submit to relay service for gasless claiming
+        const claimResponse = await fetch('http://192.168.86.245:3001/relay-direct-claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            giftId,
+            recipient: address,
+            unlockAnswer,
+            nonce: parseInt(nonce),
+            signature
+          })
+        });
+        
+        const claimResult = await claimResponse.json();
+        
+        if (!claimResult.success) {
+          throw new Error(claimResult.error || 'Relay claim failed');
+        }
+        
+        console.log('✅ Gasless direct gift claimed successfully!', claimResult);
+        
+      } else {
+        // Traditional claiming (recipient pays gas)
+        const claimLat = gift.unlockType === 'GPS' ? location.latitude! : 0;
+        const claimLng = gift.unlockType === 'GPS' ? location.longitude! : 0;
+        
+        await claimGift(Number(giftId), claimLat, claimLng, isGGT);
+      }
       
       // Show celebration
       setClaimSuccess(true);
@@ -272,15 +367,16 @@ function ClaimGiftContent() {
       
       toast({
         title: '🎉 Gift Claimed Successfully!',
-        description: `You've received ${gift.amount} ${gift.currency}!`,
+        description: `You've received ${gift.amount} ${gift.currency}!${gift.isDirectGift ? ' 🚀 Gasless claiming!' : ''}`,
       });
       
       // Refresh after celebration
       setTimeout(() => window.location.reload(), 5000);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Claim error:', error);
       toast({
         title: 'Claim Failed',
-        description: 'There was an error claiming your gift. Please try again.',
+        description: error?.message || 'There was an error claiming your gift. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -322,7 +418,7 @@ function ClaimGiftContent() {
     );
   }
 
-  if (isLoadingGift) {
+  if (isLoadingGift || isLoadingDirectGift) {
     return (
       <MainLayout>
         <div className="min-h-screen flex items-center justify-center">
@@ -429,7 +525,7 @@ function ClaimGiftContent() {
                   </Card>
                 )}
 
-                {gift.unlockType === 'PASSWORD' && (
+                {(gift.unlockType === 'PASSWORD' || gift.unlockType === 'password') && (
                   <Card className="mb-6">
                     <CardHeader>
                       <CardTitle className="flex items-center">
@@ -451,10 +547,10 @@ function ClaimGiftContent() {
                             onChange={(e) => setPasswordInput(e.target.value)}
                             className="max-w-xs"
                           />
-                          {passwordInput && passwordInput !== gift.unlockChallengeData && (
+                          {passwordInput && passwordInput !== (gift.unlockChallengeData || gift.unlockData) && (
                             <p className="text-red-600 text-sm">❌ Incorrect password</p>
                           )}
-                          {passwordInput && passwordInput === gift.unlockChallengeData && (
+                          {passwordInput && passwordInput === (gift.unlockChallengeData || gift.unlockData) && (
                             <p className="text-green-600 text-sm">✅ Password correct! You can now claim your gift.</p>
                           )}
                         </div>
@@ -850,12 +946,15 @@ function ClaimGiftContent() {
                         {claiming ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Claiming Gift...
+                            {gift.isDirectGift ? 'Claiming Gasless Gift...' : 'Claiming Gift...'}
                           </>
                         ) : canClaim ? (
                           <>
                             <Gift className="mr-2 h-4 w-4" />
-                            Claim {gift.amount} {gift.currency}
+                            {gift.isDirectGift ? '🚀 Claim ' : 'Claim '}{gift.amount} {gift.currency}
+                            {gift.isDirectGift && (
+                              <span className="ml-1 text-xs bg-cyan-500 text-black px-1 rounded">GASLESS</span>
+                            )}
                           </>
                         ) : gift.unlockType === 'GPS' ? (
                           <>

@@ -3,8 +3,8 @@ const { ethers } = require("hardhat");
 async function main() {
   console.log("🔧 Setting up relay wallet authorizations...");
   
-  // Contract address (newly deployed SimpleRelayEscrow)
-  const RELAY_ESCROW_ADDRESS = "0x0dA21305e6860bbBea457D44b02BDaf287eE856D";
+  // Contract address (newly deployed SimpleRelayEscrow with DirectGift support)
+  const RELAY_ESCROW_ADDRESS = "0xE96dAF23f7C89593a454cf75dBe3460df9642f6d";
   
   // Your wallet addresses
   const WALLET_1_MAIN = "0x2Fa710B2A99Cdd9e314080B78B0F7bF78c126234";      // Main wallet (you)

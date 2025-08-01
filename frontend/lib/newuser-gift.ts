@@ -59,6 +59,7 @@ export function cleanClaimCodeInput(input: string): string {
 export interface NewUserGiftParams {
   claimCode: string;
   amount: string; // In GGT tokens
+  ethAmount: string; // In ETH for gas fees
   expiryDays: number;
   message: string;
   unlockType: 'simple' | 'gps' | 'password' | 'quiz';
@@ -77,7 +78,8 @@ export function prepareNewUserGiftParams(params: NewUserGiftParams) {
   
   return {
     claimHash,
-    amount: ethers.parseEther(params.amount), // GGT tokens have 18 decimals like ETH
+    ggtAmount: ethers.parseEther(params.amount), // GGT tokens have 18 decimals like ETH
+    ethAmount: ethers.parseEther(params.ethAmount), // ETH amount for gas
     expiryDays: params.expiryDays,
     message: params.message,
     unlockType: params.unlockType,
