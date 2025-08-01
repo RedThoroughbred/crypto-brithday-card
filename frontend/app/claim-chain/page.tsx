@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAccount, useReadContract } from 'wagmi';
 import { motion } from 'framer-motion';
@@ -16,7 +16,7 @@ import { chainAPI } from '@/lib/api';
 import { Confetti, FloatingGifts } from '@/components/ui/confetti';
 import { StepUnlockDisplay } from '@/components/chain/step-unlock-display';
 
-export default function ClaimChainPage() {
+function ClaimChainContent() {
   const searchParams = useSearchParams();
   const chainId = searchParams.get('id');
   const { address, isConnected } = useAccount();
@@ -596,5 +596,22 @@ export default function ClaimChainPage() {
         </div>
       )}
     </MainLayout>
+  );
+}
+
+export default function ClaimChainPage() {
+  return (
+    <Suspense fallback={
+      <MainLayout>
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
+            <p className="text-white/70">Loading chain data...</p>
+          </div>
+        </div>
+      </MainLayout>
+    }>
+      <ClaimChainContent />
+    </Suspense>
   );
 }
