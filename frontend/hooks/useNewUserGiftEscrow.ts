@@ -213,7 +213,7 @@ export function useNewUserGiftEscrow() {
           params.claimCode,
           params.unlockAnswer || ''
         ],
-        gas: 300000n, // Set reasonable gas limit to prevent over-estimation
+        gas: BigInt(300000), // Set reasonable gas limit to prevent over-estimation
       });
       
     } catch (error) {
