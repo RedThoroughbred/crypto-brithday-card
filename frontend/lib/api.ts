@@ -72,7 +72,7 @@ export interface ChainStep {
   step_index: number;
   step_title: string;
   step_message: string;
-  unlock_type: UnlockType;
+  unlock_type: number;
   unlock_data?: Record<string, any>;
   latitude?: number;
   longitude?: number;
