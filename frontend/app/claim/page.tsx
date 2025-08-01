@@ -35,7 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocationEscrow } from '@/hooks/useLocationEscrow';
 import { useSimpleRelayEscrow } from '@/hooks/useSimpleRelayEscrow';
 import { LOCATION_ESCROW_ADDRESS, LOCATION_ESCROW_ABI, GGT_ESCROW_ADDRESS, GGT_ESCROW_ABI, coordinateFromContract } from '@/lib/contracts';
-import { GGT_TOKEN } from '@/lib/constants';
+import { GGT_TOKEN } from '@/lib/tokens';
 import { Confetti, FloatingGifts } from '@/components/ui/confetti';
 import { giftAPI } from '@/lib/api';
 
