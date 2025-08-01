@@ -444,7 +444,7 @@ export const chainUtils = {
   // Convert frontend step data to API format
   prepareStepForAPI: (step: any, stepIndex?: number, totalValue?: string): ChainStep => ({
     step_index: stepIndex !== undefined ? stepIndex : (step.order || step.index || step.step_index || 0),
-    step_title: step.title || step.step_title || `Step ${stepIndex + 1}`,
+    step_title: step.title || step.step_title || `Step ${(stepIndex ?? 0) + 1}`,
     step_message: step.message || step.clue || step.step_message || '',
     unlock_type: mapUnlockTypeToInt(step.unlockType || step.type || step.unlock_type || 'gps'),
     unlock_data: step.unlockData || step.unlock_data || {},
