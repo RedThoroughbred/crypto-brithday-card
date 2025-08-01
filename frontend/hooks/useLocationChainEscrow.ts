@@ -72,7 +72,7 @@ export function useLocationChainEscrow() {
       functionName: 'createGiftChain',
       args: [
         params.recipientAddress as `0x${string}`,
-        stepLocations as readonly (readonly [bigint, bigint])[],
+        stepLocations as unknown as readonly (readonly [bigint, bigint])[],
         stepRadii,
         stepMessages,
         stepTitles,
