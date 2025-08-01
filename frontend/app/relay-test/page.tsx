@@ -118,7 +118,7 @@ export default function RelayTestPage() {
           claimCode,
           '' // empty unlock answer for simple gift
         ],
-        gas: 300000n,
+        gas: BigInt(300000),
       });
       
     } catch (error) {
@@ -256,7 +256,7 @@ export default function RelayTestPage() {
             <CardContent className="p-8 text-center">
               <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-white mb-2">Gift Claimed! 🎉</h2>
-              <p className="text-green-400 text-xl mb-4">{formatEther(ggtAmount || 0n)} GGT</p>
+              <p className="text-green-400 text-xl mb-4">{formatEther(ggtAmount || BigInt(0))} GGT</p>
               <p className="text-gray-400">Check your wallet for the tokens</p>
             </CardContent>
           </Card>
@@ -284,9 +284,9 @@ export default function RelayTestPage() {
             <CardContent className="space-y-2">
               {giftDetails ? (
                 <>
-                  <p className="text-2xl font-bold text-blue-100">{formatEther(ggtAmount || 0n)} GGT</p>
+                  <p className="text-2xl font-bold text-blue-100">{formatEther(ggtAmount || BigInt(0))} GGT</p>
                   <p className="text-sm text-gray-400">From: {sender?.slice(0, 10)}...</p>
-                  <p className="text-sm text-gray-400">Gas Allowance: {formatEther(gasAllowance || 0n)} ETH</p>
+                  <p className="text-sm text-gray-400">Gas Allowance: {formatEther(gasAllowance || BigInt(0))} ETH</p>
                   {message && <p className="text-blue-100 italic mt-2">"{message}"</p>}
                 </>
               ) : (
@@ -371,7 +371,7 @@ export default function RelayTestPage() {
                       ) : (
                         <>
                           <Zap className="w-4 h-4 mr-2" />
-                          ⚡ Gasless Claim {formatEther(ggtAmount || 0n)} GGT
+                          ⚡ Gasless Claim {formatEther(ggtAmount || BigInt(0))} GGT
                         </>
                       )}
                     </Button>
