@@ -378,7 +378,7 @@ export default function ProfilePage() {
                               onClick={handleSaveProfile}
                               size="sm"
                               className="bg-cyan-500 hover:bg-cyan-600 text-black"
-                              disabled={profileMutation.isLoading}
+                              disabled={profileMutation.isPending}
                             >
                               Save
                             </Button>
