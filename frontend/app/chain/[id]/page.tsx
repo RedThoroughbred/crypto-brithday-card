@@ -169,7 +169,7 @@ export default function GGTChainPage() {
     console.log('Step keys:', Object.keys(step));
     
     // Try different possible field names for unlock type
-    const stepType = Number(step.stepType || step.unlockType || 0);
+    const stepType = Number(step.unlockType || 0);
     console.log('Parsed step type:', stepType);
     
     const unlockTypeMap = ['gps', 'video', 'image', 'markdown', 'quiz', 'password', 'url'] as const;
