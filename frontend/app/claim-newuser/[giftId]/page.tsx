@@ -345,11 +345,11 @@ export default function ClaimNewUserGiftPage() {
               <div className="bg-black/30 p-4 rounded-lg space-y-2">
                 <div>
                   <p className="text-2xl font-bold text-green-400">
-                    {formatEther(ggtAmount || 0n)} GGT
+                    {formatEther(ggtAmount || BigInt(0))} GGT
                   </p>
                   <p className="text-gray-400 text-sm">tokens sent to your wallet</p>
                 </div>
-                {ethAmount && ethAmount > 0n && (
+                {ethAmount && ethAmount > BigInt(0) && (
                   <div>
                     <p className="text-xl font-bold text-yellow-400">
                       + {formatEther(ethAmount)} ETH
@@ -439,10 +439,10 @@ export default function ClaimNewUserGiftPage() {
                   <div className="flex items-center justify-center gap-2">
                     <Gift className="w-6 h-6 text-blue-300" />
                     <span className="text-2xl font-bold text-blue-100">
-                      {formatEther(ggtAmount || 0n)} GGT
+                      {formatEther(ggtAmount || BigInt(0))} GGT
                     </span>
                   </div>
-                  {ethAmount && ethAmount > 0n && (
+                  {ethAmount && ethAmount > BigInt(0) && (
                     <div className="flex items-center justify-center gap-2">
                       <Sparkles className="w-5 h-5 text-yellow-400" />
                       <span className="text-lg font-medium text-yellow-200">
@@ -573,8 +573,8 @@ export default function ClaimNewUserGiftPage() {
                         ) : (
                           <>
                             <Zap className="w-4 h-4 mr-2" />
-                            ⚡ Claim Gasless {formatEther(ggtAmount || 0n)} GGT
-                            {ethAmount && ethAmount > 0n && ` + ${formatEther(ethAmount)} ETH`}
+                            ⚡ Claim Gasless {formatEther(ggtAmount || BigInt(0))} GGT
+                            {ethAmount && ethAmount > BigInt(0) && ` + ${formatEther(ethAmount)} ETH`}
                           </>
                         )}
                       </Button>
@@ -623,8 +623,8 @@ export default function ClaimNewUserGiftPage() {
                       ) : (
                         <>
                           <Gift className="w-4 h-4 mr-2" />
-                          {shouldUseGSN ? '⚡ Claim Gasless' : 'Claim'} {formatEther(ggtAmount || 0n)} GGT
-                          {ethAmount && ethAmount > 0n && ` + ${formatEther(ethAmount)} ETH`}
+                          {shouldUseGSN ? '⚡ Claim Gasless' : 'Claim'} {formatEther(ggtAmount || BigInt(0))} GGT
+                          {ethAmount && ethAmount > BigInt(0) && ` + ${formatEther(ethAmount)} ETH`}
                         </>
                       )}
                     </Button>
