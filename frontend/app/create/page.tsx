@@ -1009,7 +1009,7 @@ export default function CreateGiftPage() {
                 ) : (
                   <Button 
                     type="submit" 
-                    disabled={!isValid || (watchedValues.unlockType === 'GPS' && !selectedLocation) || isCreating || isCreatingGasless || isTxSuccess || createdGiftIdGasless}
+                    disabled={!isValid || (watchedValues.unlockType === 'GPS' && !selectedLocation) || isCreating || isCreatingGasless || isTxSuccess || !!createdGiftIdGasless}
                   >
                     {(isCreating || isCreatingGasless) ? (
                       <>
