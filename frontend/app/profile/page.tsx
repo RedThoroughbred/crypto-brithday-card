@@ -110,7 +110,7 @@ export default function ProfilePage() {
   const profileMutation = useMutation({
     mutationFn: profileAPI.updateProfile,
     onSuccess: () => {
-      queryClient.invalidateQueries(['profile', address]);
+      queryClient.invalidateQueries({ queryKey: ['profile', address] });
       toast({
         title: 'Profile Updated',
         description: 'Your profile has been updated successfully.',
@@ -129,7 +129,7 @@ export default function ProfilePage() {
   const preferencesMutation = useMutation({
     mutationFn: profileAPI.updatePreferences,
     onSuccess: () => {
-      queryClient.invalidateQueries(['preferences', address]);
+      queryClient.invalidateQueries({ queryKey: ['preferences', address] });
       toast({
         title: 'Preferences Updated',
         description: 'Your notification preferences have been updated.',
