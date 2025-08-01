@@ -56,18 +56,18 @@ export function ChainStepBuilder({
       message: '',
       unlockType: 'gps', // Default to GPS for now
       unlockData: {
-        latitude: null,
-        longitude: null,
+        latitude: undefined,
+        longitude: undefined,
         radius: 50
       },
       order: steps.length,
       // Legacy fields
-      latitude: null,
-      longitude: null,
+      latitude: undefined,
+      longitude: undefined,
       radius: 50,
       // Bonus reward fields
       rewardContent: undefined,
-      rewardContentType: null
+      rewardContentType: undefined
     };
     
     onStepsChange([...steps, newStep]);
