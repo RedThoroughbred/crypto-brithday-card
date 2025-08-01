@@ -36,24 +36,7 @@ export const createGSNConfig = (chainId: number): Partial<GSNConfig> => {
     paymasterAddress: networkConfig.paymasterAddress,
     loggerConfiguration: {
       logLevel: process.env.NODE_ENV === 'development' ? 'debug' : 'error'
-    },
-    methodSuffix: '_v4',
-    jsonStringifyRequest: true,
-    chainId: chainId,
-    relayHubAddress: networkConfig.relayHubAddress,
-    // Optional: specify relay server URLs
-    preferredRelays: [
-      // Will use public GSN relayers by default
-      // Can add custom relay URLs here if needed
-    ],
-    blacklistedRelays: [
-      // Add any problematic relay URLs here
-    ],
-    relayTimeoutGrace: 1800, // 30 minutes
-    sliceSize: 3, // Number of relays to query simultaneously
-    gasPriceFactorPercent: 120, // Add 20% to gas price for reliability
-    minGasPrice: 1e9, // 1 gwei minimum
-    maxGasPrice: 100e9, // 100 gwei maximum
+    }
   };
 };
 
