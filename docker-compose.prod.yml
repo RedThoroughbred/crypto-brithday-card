@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:14-alpine
+    container_name: geogift-db-prod
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data/
+    env_file:
+      - ./.env.prod
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: geogift-backend-prod
+    depends_on:
+      - db
+    env_file:
+      - ./.env.prod
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: geogift-frontend-prod
+    depends_on:
+      - backend
+    env_file:
+      - ./.env.prod
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  relay:
+    build:
+      context: .
+      dockerfile: Dockerfile.relay
+    container_name: geogift-relay-prod
+    depends_on:
+      - backend
+    env_file:
+      - ./.env.prod
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
+volumes:
+  postgres_data_prod:

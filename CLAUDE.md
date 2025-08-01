@@ -117,6 +117,10 @@ We have successfully implemented a revolutionary gasless claiming system that al
 
 ### Quick Start Commands
 ```bash
+# Development (Local Docker Compose)
+./start-dev.sh
+
+# OR Manual Setup:
 # Backend (FastAPI + PostgreSQL)
 cd backend && python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
@@ -126,15 +130,29 @@ cd frontend && npm run dev
 # Gasless Relay Service (for zero-ETH claiming)
 node simple-relay.js
 
-# Database
-docker run --name geogift-postgres -e POSTGRES_PASSWORD=geogift123 -p 5432:5432 -d postgres:14
+# Database (Local Development)
+docker-compose up -d
+
+# Production (Docker Containers)
+docker-compose -f docker-compose.prod.yml up -d
 ```
+
+### Docker Production Setup
+**New Production Files:**
+- `backend/Dockerfile` - FastAPI containerization
+- `frontend/Dockerfile` - Next.js containerization  
+- `Dockerfile.relay` - Node.js relay service containerization
+- `docker-compose.prod.yml` - Production orchestration with all services
 
 ### Environment Variables
 ```bash
-# Database
+# Database (Local Development)
 DATABASE_URL=postgresql://geogift:geogift123@localhost:5432/geogift_dev
 REDIS_URL=redis://localhost:6379/0
+
+# Database (Production - Neon PostgreSQL on Vercel)
+DATABASE_URL=postgres://neondb_owner:npg_Zo8AFw6TbgNz@ep-late-heart-aef75fup-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require
+POSTGRES_URL=postgres://neondb_owner:npg_Zo8AFw6TbgNz@ep-late-heart-aef75fup-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require
 
 # Blockchain - Sepolia Testnet
 NEXT_PUBLIC_SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/your-key

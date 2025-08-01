@@ -24,7 +24,14 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "your-jwt-secret"
     ENCRYPTION_KEY: str = "your-encryption-key"
     ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1", "0.0.0.0", "192.168.86.245"]
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000", "http://192.168.86.245:3000"]
+    ALLOWED_ORIGINS: List[str] = [
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000", 
+        "http://192.168.86.245:3000",
+        "https://*.vercel.app",
+        "https://geogift-frontend.vercel.app",  # Update with your actual Vercel URL
+        "https://crypto-brithday-card.vercel.app"  # Alternative naming
+    ]
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     
     # Database

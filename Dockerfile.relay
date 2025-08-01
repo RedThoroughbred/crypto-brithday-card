@@ -1,0 +1,21 @@
+# Use an official Node.js runtime as a parent image
+FROM node:18-alpine
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy package.json and package-lock.json for the relay dependencies
+# Note: You might need a separate package.json for the relay or use the root one
+COPY package.json package-lock.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy the relay script
+COPY simple-relay.js .
+
+# Expose the port the relay service runs on
+EXPOSE 3001
+
+# The command to start the relay service
+CMD ["node", "simple-relay.js"]
