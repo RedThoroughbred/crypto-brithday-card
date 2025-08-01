@@ -288,7 +288,7 @@ export function useSimpleRelayEscrow() {
               log.topics && log.topics.length >= 2) {
             // The gift ID is likely the first indexed parameter (topics[1])
             // This is a common pattern for gift created events
-            actualGiftId = log.topics[1];
+            actualGiftId = log.topics[1] as `0x${string}`;
             console.log('🎯 Extracted actual gift ID from contract logs:', actualGiftId);
             break;
           }
