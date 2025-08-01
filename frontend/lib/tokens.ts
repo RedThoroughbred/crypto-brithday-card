@@ -14,9 +14,8 @@ export const GGT_TOKEN: TokenConfig = {
   symbol: 'GGT',
   name: 'GeoGiftTestToken',
   decimals: 18,
-  icon: '🎁',
-  // Your wallet that deployed/owns this token
-  deployer: '0x2Fa710B2A99Cdd9e314080B78B0F7bF78c126234'
+  icon: '🎁'
+  // Note: Deployed by wallet 0x2Fa710B2A99Cdd9e314080B78B0F7bF78c126234
 };
 
 // Native ETH configuration
