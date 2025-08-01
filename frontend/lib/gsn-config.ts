@@ -34,7 +34,6 @@ export const createGSNConfig = (chainId: number): Partial<GSNConfig> => {
   
   return {
     paymasterAddress: networkConfig.paymasterAddress,
-    forwarderAddress: networkConfig.trustedForwarder,
     loggerConfiguration: {
       logLevel: process.env.NODE_ENV === 'development' ? 'debug' : 'error'
     },
