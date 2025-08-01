@@ -5,7 +5,6 @@
  * Handles authentication, error handling, and data transformation.
  */
 
-import { UnlockType } from './unlock-types';
 
 // Dashboard types
 import type {
