@@ -182,7 +182,7 @@ function ClaimGiftContent() {
         }
       } else if (gift.unlockType === 'PASSWORD' || gift.unlockType === 'password') {
         // Password unlock requires correct password
-        const correctPassword = gift.unlockChallengeData || gift.unlockData;
+        const correctPassword = gift.unlockChallengeData || '';
         setCanClaim(passwordInput === correctPassword && !gift.claimed);
       } else if (gift.unlockType === 'QUIZ') {
         // Quiz unlock requires correct answer
@@ -547,10 +547,10 @@ function ClaimGiftContent() {
                             onChange={(e) => setPasswordInput(e.target.value)}
                             className="max-w-xs"
                           />
-                          {passwordInput && passwordInput !== (gift.unlockChallengeData || gift.unlockData) && (
+                          {passwordInput && passwordInput !== (gift.unlockChallengeData || '') && (
                             <p className="text-red-600 text-sm">❌ Incorrect password</p>
                           )}
-                          {passwordInput && passwordInput === (gift.unlockChallengeData || gift.unlockData) && (
+                          {passwordInput && passwordInput === (gift.unlockChallengeData || '') && (
                             <p className="text-green-600 text-sm">✅ Password correct! You can now claim your gift.</p>
                           )}
                         </div>
