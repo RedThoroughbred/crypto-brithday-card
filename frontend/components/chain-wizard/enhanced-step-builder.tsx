@@ -98,7 +98,7 @@ export function EnhancedStepBuilder({
     if (steps.length >= maxSteps) return;
     
     const defaultUnlockData: Record<StepUnlockType, StepUnlockData> = {
-      gps: { latitude: null, longitude: null, radius: 50 },
+      gps: { latitude: undefined, longitude: undefined, radius: 50 },
       video: { mediaUrl: '', mediaType: 'youtube' },
       image: { mediaUrl: '', mediaType: 'image' },
       markdown: { markdownContent: '# Step Title\n\nYour content here...' },
