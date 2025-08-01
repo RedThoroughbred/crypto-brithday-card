@@ -37,7 +37,6 @@ export const createGSNConfig = (chainId: number): Partial<GSNConfig> => {
     loggerConfiguration: {
       logLevel: process.env.NODE_ENV === 'development' ? 'debug' : 'error'
     },
-    relayLookupWindowBlocks: 60000,
     methodSuffix: '_v4',
     jsonStringifyRequest: true,
     chainId: chainId,
