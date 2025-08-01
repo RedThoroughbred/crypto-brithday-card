@@ -317,15 +317,15 @@ export default function ClaimNewUserGiftPage() {
   const [sender, ggtAmount, ethAmount, expiry, claimed, refunded, message, unlockType, unlockData] = 
     Array.isArray(actualGiftDetails) ? actualGiftDetails : 
     (actualGiftDetails ? [
-      actualGiftDetails.sender,
-      actualGiftDetails.ggtAmount,
-      actualGiftDetails.gasAllowance || actualGiftDetails.ethAmount,
-      actualGiftDetails.expiry,
-      actualGiftDetails.claimed,
-      actualGiftDetails.refunded,
-      actualGiftDetails.message,
-      actualGiftDetails.unlockType,
-      actualGiftDetails.unlockData
+      actualGiftDetails[0], // sender
+      actualGiftDetails[1], // ggtAmount
+      actualGiftDetails[2], // ethAmount/gasAllowance
+      actualGiftDetails[3], // expiry
+      actualGiftDetails[4], // claimed
+      actualGiftDetails[5], // refunded
+      actualGiftDetails[6], // message
+      actualGiftDetails[7], // unlockType
+      actualGiftDetails[8]  // unlockData
     ] : []);
   const isExpired = Date.now() / 1000 > Number(expiry);
   const timeRemaining = formatTimeRemaining(Number(expiry));
