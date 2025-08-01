@@ -248,8 +248,8 @@ export function ChainStepBuilder({
                               switch (value) {
                                 case 'gps':
                                   updates.unlockData = {
-                                    latitude: step.latitude,
-                                    longitude: step.longitude,
+                                    latitude: step.latitude ?? undefined,
+                                    longitude: step.longitude ?? undefined,
                                     radius: step.radius || 50
                                   };
                                   break;
