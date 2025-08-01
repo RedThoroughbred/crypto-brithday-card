@@ -2,15 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-// TypeScript declarations for MetaMask
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: any[] }) => Promise<any>;
-      isMetaMask?: boolean;
-    };
-  }
-}
+// TypeScript declarations for MetaMask are defined globally
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
