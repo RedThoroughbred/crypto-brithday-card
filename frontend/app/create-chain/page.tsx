@@ -305,13 +305,13 @@ export default function CreateChainPage() {
         switch (step.unlockType) {
           case 'password':
             // Hash the password for verification
-            return createUnlockClueHash(step.unlockType, { password: step.unlockData?.password || '' });
+            return createUnlockClueHash(step.unlockType, { password: step.unlockData?.password || '' }) as `0x${string}`;
           case 'quiz':
             // Hash the answer for verification
-            return createUnlockClueHash(step.unlockType, { answer: step.unlockData?.answer || '' });
+            return createUnlockClueHash(step.unlockType, { answer: step.unlockData?.answer || '' }) as `0x${string}`;
           default:
             // For other types, create a generic hash
-            return createUnlockClueHash('gps', {});
+            return createUnlockClueHash('gps', {}) as `0x${string}`;
         }
       });
       
