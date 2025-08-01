@@ -234,7 +234,7 @@ export function useSimpleRelayEscrow() {
         abi: GGT_TOKEN_ABI,
         functionName: 'approve',
         args: [SIMPLE_RELAY_ESCROW_ADDRESS, ggtAmount],
-        gas: 100000n,
+        gas: BigInt(100000),
       });
 
       console.log('✅ Token approval transaction submitted:', approvalHash);
@@ -260,7 +260,7 @@ export function useSimpleRelayEscrow() {
           params.unlockData || '',
         ],
         value: ethAmount, // Send ETH along with the transaction
-        gas: 500000n,
+        gas: BigInt(500000),
       });
 
       console.log('✅ Gift creation transaction submitted:', giftCreationHash);
@@ -369,7 +369,7 @@ export function useSimpleRelayEscrow() {
         abi: GGT_TOKEN_ABI,
         functionName: 'approve',
         args: [SIMPLE_RELAY_ESCROW_ADDRESS, ggtAmount],
-        gas: 100000n,
+        gas: BigInt(100000),
       });
 
       console.log('✅ Token approval transaction submitted:', approvalHash);
@@ -395,7 +395,7 @@ export function useSimpleRelayEscrow() {
           params.unlockData || '',
         ],
         value: ethAmount, // Send ETH along with the transaction for gas allowance
-        gas: 500000n,
+        gas: BigInt(500000),
       });
 
       console.log('✅ Direct gift creation transaction submitted:', giftCreationHash);

@@ -47,7 +47,7 @@ export function useLocationChainEscrow() {
     const stepLocations = params.steps.map(step => [
       coordinateToContract(step.latitude!),
       coordinateToContract(step.longitude!)
-    ])
+    ] as readonly [bigint, bigint])
 
     // Prepare step radii
     const stepRadii = params.steps.map(step => BigInt(step.radius))
