@@ -73,7 +73,7 @@ export function useGSNProvider(): UseGSNProviderReturn {
       });
       
       // Create ethers provider wrapper
-      const ethersGSNProvider = new ethers.BrowserProvider(gsnRelayProvider.provider);
+      const ethersGSNProvider = new ethers.BrowserProvider(gsnRelayProvider);
       
       // Test the provider by getting network info
       const network = await ethersGSNProvider.getNetwork();
