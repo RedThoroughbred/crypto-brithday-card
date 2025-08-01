@@ -119,7 +119,7 @@ function ClaimGiftContent() {
     rewardContent: '', // Direct gifts don't have reward content yet
     rewardContentType: '',
     isDirectGift: true,
-    gasAllowance: formatEther(directGiftData[3] || 0), // Gas allowance for gasless claiming
+    gasAllowance: formatEther(directGiftData[3] || BigInt(0)), // Gas allowance for gasless claiming
   } : contractGift ? {
     // Traditional gift from GGT/ETH escrow
     giver: contractGift[0],
