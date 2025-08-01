@@ -422,7 +422,7 @@ export function useSimpleRelayEscrow() {
           if (log.address?.toLowerCase() === SIMPLE_RELAY_ESCROW_ADDRESS.toLowerCase() && 
               log.topics && log.topics.length >= 2) {
             // The gift ID is likely the first indexed parameter (topics[1])
-            actualGiftId = log.topics[1];
+            actualGiftId = log.topics[1] as `0x${string}`;
             console.log('🎯 Extracted actual gift ID from contract logs:', actualGiftId);
             break;
           }
