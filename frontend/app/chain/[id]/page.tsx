@@ -50,7 +50,6 @@ export default function GGTChainPage() {
       stepsData.forEach((step, index) => {
         console.log(`Step ${index}:`, {
           stepIndex: step.stepIndex,
-          stepType: step.stepType,
           unlockType: step.unlockType,
           stepTitle: step.stepTitle,
           keys: Object.keys(step)
