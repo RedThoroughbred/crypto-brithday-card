@@ -67,7 +67,7 @@ export function useGSNProvider(): UseGSNProviderReturn {
       console.log('GSN Config:', gsnConfig);
       
       // Initialize GSN RelayProvider
-      const gsnRelayProvider = await RelayProvider.newWeb3Provider({
+      const gsnRelayProvider = await RelayProvider.newProvider({
         provider: window.ethereum,
         config: gsnConfig
       });
