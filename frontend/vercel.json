@@ -34,7 +34,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/$1"
+      "destination": "https://147.182.130.29/api/$1"
     },
     {
       "source": "/relay/(.*)",
