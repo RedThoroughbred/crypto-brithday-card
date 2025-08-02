@@ -78,11 +78,12 @@ class CRUDDashboard:
         total_ggt_received = 0.0
         
         # Count active (pending) gifts
+        from app.models.gift import GiftStatus
         active_gifts_result = await db.execute(
             select(func.count(Gift.id)).where(
                 and_(
                     Gift.sender_id == user.id,
-                    Gift.status == 'PENDING'
+                    Gift.status == GiftStatus.PENDING
                 )
             )
         )
@@ -119,7 +120,7 @@ class CRUDDashboard:
             .limit(5)
         )
         popular_unlock_types = [
-            {"type": row.unlock_type, "count": row.count}
+            {"type": row.unlock_type.value if row.unlock_type else "GPS", "count": row.count}
             for row in unlock_types_result
         ]
         
@@ -137,7 +138,7 @@ class CRUDDashboard:
                 "id": str(gift.id),
                 "recipient": gift.recipient_address[:8] + "...",
                 "amount": 0.0,  # Gift model doesn't have amount field
-                "status": "claimed" if gift.status.value == "CLAIMED" else "active",
+                "status": "claimed" if (gift.status and gift.status.value == "CLAIMED") else "active",
                 "created_at": gift.created_at.isoformat()
             }
             for gift in recent_gifts.scalars()
