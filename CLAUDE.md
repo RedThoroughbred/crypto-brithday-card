@@ -60,7 +60,7 @@ We have successfully implemented a revolutionary gasless claiming system that al
 **✅ PROFESSIONAL PRODUCTION INFRASTRUCTURE:**
 
 **Frontend Deployment (Vercel):**
-- **Domain**: `getwithit.io` (custom domain with professional SSL)
+- **Domain**: `GeoGift.io` (professional branded domain with SSL)
 - **Platform**: Vercel hosting with automatic HTTPS and global CDN
 - **Build System**: Next.js 14 with TypeScript production optimization
 - **Environment**: All environment variables properly configured for production
@@ -78,11 +78,11 @@ We have successfully implemented a revolutionary gasless claiming system that al
 - **Seamless Integration**: Vercel proxy routes `/api/*` to DigitalOcean backend
 - **CORS Resolution**: Custom CORS headers for cross-origin requests
 - **SSL Chain**: Frontend (Vercel SSL) → Backend (temporary SSL) → Database (Neon SSL)
-- **Professional URLs**: All API calls use `https://getwithit.io/api/v1/*` format
+- **Professional URLs**: All API calls use `https://GeoGift.io/api/v1/*` format
 - **Zero Configuration**: End users see single domain with full functionality
 
 **DNS & Domain Management:**
-- **Registrar**: SiteGround domain management
+- **Registrar**: GoDaddy domain management (GeoGift.io)
 - **DNS Records**: A record → Vercel IP (216.198.79.1), CNAME → Vercel infrastructure  
 - **Propagation**: Waiting for global DNS propagation (24-48 hours typical)
 - **Future**: Will replace temporary SSL with Let's Encrypt for backend domain
@@ -156,7 +156,7 @@ We have successfully implemented a revolutionary gasless claiming system that al
 **🌐 PRODUCTION ACCESS (August 2, 2025):**
 ```bash
 # Access the live production platform
-https://getwithit.io  # (Once DNS propagates - currently waiting)
+https://GeoGift.io  # (Once DNS propagates - currently waiting)
 ```
 
 **💻 LOCAL DEVELOPMENT:**
@@ -196,7 +196,7 @@ DATABASE_URL=postgres://neondb_owner:npg_Zo8AFw6TbgNz@ep-late-heart-aef75fup-poo
 POSTGRES_URL=postgres://neondb_owner:npg_Zo8AFw6TbgNz@ep-late-heart-aef75fup-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require
 
 # Frontend Production (Vercel Environment Variables)
-NEXT_PUBLIC_API_URL=https://getwithit.io  # Professional domain with proxy to backend
+NEXT_PUBLIC_API_URL=https://GeoGift.io  # Professional branded domain with proxy to backend
 
 # Blockchain - Sepolia Testnet
 NEXT_PUBLIC_SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/your-key
