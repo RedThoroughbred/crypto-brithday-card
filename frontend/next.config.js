@@ -6,6 +6,10 @@ const nextConfig = {
         source: '/api/:path*',
         destination: 'https://147.182.130.29/api/:path*', // Proxy to DigitalOcean backend
       },
+      {
+        source: '/relay/:path*',
+        destination: 'http://147.182.130.29:3001/:path*', // Proxy to relay service
+      },
     ]
   },
   async headers() {
