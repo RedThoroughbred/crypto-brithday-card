@@ -34,6 +34,10 @@
     {
       "source": "/api/(.*)",
       "destination": "/api/$1"
+    },
+    {
+      "source": "/relay/(.*)",
+      "destination": "http://147.182.130.29:3001/$1"
     }
   ]
 }

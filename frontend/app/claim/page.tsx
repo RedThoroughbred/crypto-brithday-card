@@ -310,11 +310,12 @@ function ClaimGiftContent() {
         }
         
         // Step 1: Get nonce from relay service
-        const nonceResponse = await fetch(`http://192.168.86.245:3001/direct-nonce/${giftId}`);
+        const relayUrl = process.env.NEXT_PUBLIC_RELAY_SERVICE_URL || '/relay';
+        const nonceResponse = await fetch(`${relayUrl}/direct-nonce/${giftId}`);
         const { nonce } = await nonceResponse.json();
         
         // Step 2: Create claim signature hash
-        const hashResponse = await fetch('http://192.168.86.245:3001/create-direct-claim-hash', {
+        const hashResponse = await fetch(`${relayUrl}/create-direct-claim-hash`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -332,7 +333,7 @@ function ClaimGiftContent() {
         });
         
         // Step 4: Submit to relay service for gasless claiming
-        const claimResponse = await fetch('http://192.168.86.245:3001/relay-direct-claim', {
+        const claimResponse = await fetch(`${relayUrl}/relay-direct-claim`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
