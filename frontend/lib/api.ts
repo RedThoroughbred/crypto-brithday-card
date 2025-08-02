@@ -62,8 +62,9 @@ export interface UserAchievements {
   completion_percentage: number;
 }
 
-// API Configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// API Configuration - handle both domain-only and full API URLs
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = rawApiUrl.includes('/api') ? rawApiUrl.replace('/api', '') : rawApiUrl;
 const API_PREFIX = '/api/v1';
 
 // Type Definitions
