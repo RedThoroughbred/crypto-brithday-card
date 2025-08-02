@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'https://147.182.130.29/api/:path*', // Proxy to DigitalOcean backend
+      },
+    ]
+  },
   images: {
     domains: ['images.unsplash.com', 'api.mapbox.com'],
     remotePatterns: [
