@@ -30,7 +30,9 @@ class Settings(BaseSettings):
         "http://192.168.86.245:3000",
         "https://*.vercel.app",
         "https://geogift-frontend.vercel.app",  # Update with your actual Vercel URL
-        "https://crypto-brithday-card.vercel.app"  # Alternative naming
+        "https://crypto-brithday-card.vercel.app",  # Alternative naming
+        "https://GeoGift.io",  # Production domain
+        "https://geogift.io"   # Lowercase version
     ]
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     
